@@ -23,12 +23,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24.11.1"
           cache: npm
@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload Playwright artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-${{ github.ref_name }}-${{ github.run_attempt }}
           path: |
@@ -78,7 +78,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout pruebas
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: pruebas
           fetch-depth: 0
@@ -117,7 +117,7 @@ jobs:
       tested_sha: ${{ steps.rev.outputs.sha }}
     steps:
       - name: Checkout pruebas
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: pruebas
           fetch-depth: 0
@@ -127,7 +127,7 @@ jobs:
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "24.11.1"
           cache: npm
@@ -161,7 +161,7 @@ jobs:
 
       - name: Upload Playwright artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-pruebas-${{ github.run_attempt }}
           path: |
@@ -180,7 +180,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
