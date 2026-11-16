@@ -1,0 +1,207 @@
+name: Island Cases CI
+
+on:
+  push:
+    branches:
+      - ramon
+      - adil
+      - pruebas
+  workflow_dispatch:
+
+concurrency:
+  group: island-cases-ci
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  test:
+    name: Test ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.11.1"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Game crash test
+        run: npm run test:e2e
+
+      - name: Boundaries
+        run: npm run check:boundaries
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ github.ref_name }}-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+
+  promote_to_pruebas:
+    name: Promote ${{ github.ref_name }} to pruebas
+    needs: test
+    if: ${{ needs.test.result == 'success' && (github.ref_name == 'ramon' || github.ref_name == 'adil') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pruebas
+        uses: actions/checkout@v4
+        with:
+          ref: pruebas
+          fetch-depth: 0
+
+      - name: Merge tested commit into pruebas
+        env:
+          SOURCE: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin pruebas "$SOURCE"
+          git checkout pruebas
+          git reset --hard origin/pruebas
+
+          if ! git cat-file -e "$SOURCE_SHA^{commit}" 2>/dev/null; then
+            git fetch origin "$SOURCE_SHA"
+          fi
+
+          if git merge-base --is-ancestor "$SOURCE_SHA" HEAD; then
+            echo "No new commits to merge from $SOURCE."
+            exit 0
+          fi
+
+          git merge --no-ff --no-edit "$SOURCE_SHA"
+          git push origin HEAD:pruebas
+
+  integration_test:
+    name: Test pruebas integration
+    needs: promote_to_pruebas
+    if: ${{ needs.promote_to_pruebas.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      tested_sha: ${{ steps.rev.outputs.sha }}
+    steps:
+      - name: Checkout pruebas
+        uses: actions/checkout@v4
+        with:
+          ref: pruebas
+          fetch-depth: 0
+
+      - name: Capture tested commit
+        id: rev
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.11.1"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Game crash test
+        run: npm run test:e2e
+
+      - name: Boundaries
+        run: npm run check:boundaries
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-pruebas-${{ github.run_attempt }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+
+  promote_to_main:
+    name: Promote pruebas to main
+    needs:
+      - test
+      - promote_to_pruebas
+      - integration_test
+    if: ${{ always() && needs.test.result == 'success' && (github.ref_name == 'pruebas' || needs.integration_test.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge tested pruebas commit into main
+        env:
+          TESTED_SHA: ${{ needs.integration_test.outputs.tested_sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main pruebas
+          git checkout main
+          git reset --hard origin/main
+
+          TARGET_SHA="${TESTED_SHA:-$GITHUB_SHA}"
+
+          if git merge-base --is-ancestor "$TARGET_SHA" HEAD; then
+            echo "No new commits to merge into main."
+            exit 0
+          fi
+
+          git merge --no-ff --no-edit "$TARGET_SHA"
+          git push origin HEAD:main
