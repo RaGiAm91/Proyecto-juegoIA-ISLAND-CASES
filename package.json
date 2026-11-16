@@ -1,0 +1,51 @@
+{
+  "name": "island-cases",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "predev": "npm run build -w @island-cases/shared",
+    "dev": "concurrently -k -n shared,server,client -c gray,cyan,magenta \"npm:dev:shared\" \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:shared": "npm run dev -w @island-cases/shared",
+    "dev:server": "npm run dev -w @island-cases/server",
+    "dev:client": "npm run dev -w @island-cases/client",
+    "build": "npm run build -w @island-cases/shared && npm run build -w @island-cases/server && npm run build -w @island-cases/client",
+    "start": "npm run start -w @island-cases/server",
+    "preview": "npm run preview -w @island-cases/client",
+    "prelint": "npm run build -w @island-cases/shared",
+    "lint": "eslint .",
+    "pretypecheck": "npm run build -w @island-cases/shared",
+    "typecheck": "npm run typecheck -w @island-cases/shared && npm run typecheck -w @island-cases/server && npm run typecheck -w @island-cases/client",
+    "pretest": "npm run build -w @island-cases/shared",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "pretest:e2e": "npm run build -w @island-cases/shared",
+    "test:e2e": "playwright test",
+    "check:boundaries": "depcruise --config .dependency-cruiser.cjs client/src server/src shared/src",
+    "check:licenses": "license-checker --production --onlyAllow \"MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;CC0-1.0;0BSD;Unlicense\" --excludePrivatePackages",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.65.1",
+    "@types/node": "24.19.2",
+    "concurrently": "10.0.7",
+    "dependency-cruiser": "18.7.2",
+    "eslint": "10.15.0",
+    "eslint-config-prettier": "10.1.8",
+    "license-checker": "25.0.1",
+    "prettier": "3.10.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.2",
+    "vitest": "5.1.0"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "skills": {
+    "colyseus": {
+      "source": "colyseus/skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "241e3318437d42ab6ee8faeedf4c03dee323e327892fc4f7a4c543858c6d76ea"
+    }
+  }
+}
