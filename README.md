@@ -36,6 +36,14 @@ El test arranca servidor y cliente, abre dos contextos aislados, comprueba que a
 - Ratón: orbitar la cámara.
 - Rueda: zoom.
 
+## Ramas y CI
+
+- `ramon` y `adil`: cada push ejecuta build, lint, typecheck, tests y E2E. Si pasa, el commit se fusiona en `pruebas`.
+- `pruebas`: ejecuta la misma batería sobre la integración de ambas ramas. Si pasa, se fusiona en `main`.
+- Si el juego falla o alguna prueba no pasa, el commit permanece solo en su rama.
+
+El workflow está en `.github/workflows/ci.yml`.
+
 ## Estado
 
 Esta fase solo cubre la base 3D y el multijugador. La investigación, los eventos, el terror, la muerte, el espectador, el chat y la puntuación se añadirán por fases.
