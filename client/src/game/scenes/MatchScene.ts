@@ -1,4 +1,14 @@
-import { INPUT_SEND_RATE, PLAYER_SPEED, ROOM_BOUNDS } from "@island-cases/shared";
+import {
+  applyMovement,
+  INPUT_SEND_RATE,
+  lerpAngle,
+  LOCAL_CORRECTION_RATE,
+  LOCAL_CORRECTION_THRESHOLD,
+  PLAYER_SPEED,
+  REMOTE_INTERPOLATION_RATE,
+  ROOM_BOUNDS,
+  smoothingFactor,
+} from "@island-cases/shared";
 import type { MatchStateView, PlayerView } from "@island-cases/shared";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import "@babylonjs/core/Culling/ray";
@@ -40,20 +50,6 @@ function colorFor(sessionId: string): string {
   }
 
   return PALETTE[Math.abs(hash) % PALETTE.length] ?? "#A8863F";
-}
-
-function lerpAngle(from: number, to: number, amount: number): number {
-  let difference = (to - from) % (Math.PI * 2);
-
-  if (difference > Math.PI) {
-    difference -= Math.PI * 2;
-  }
-
-  if (difference < -Math.PI) {
-    difference += Math.PI * 2;
-  }
-
-  return from + difference * amount;
 }
 
 export class MatchScene {
@@ -230,9 +226,13 @@ export class MatchScene {
     if (desired.lengthSquared() > 0.0001) {
       desired.normalize();
       local.root.rotation.y = Math.atan2(desired.x, desired.z);
-      local.root.position.addInPlace(desired.scale(PLAYER_SPEED * dt));
-      local.root.position.x = Math.min(ROOM_BOUNDS, Math.max(-ROOM_BOUNDS, local.root.position.x));
-      local.root.position.z = Math.min(ROOM_BOUNDS, Math.max(-ROOM_BOUNDS, local.root.position.z));
+      applyMovement(
+        local.root.position,
+        { moveX: desired.x, moveZ: desired.z },
+        PLAYER_SPEED,
+        dt,
+        ROOM_BOUNDS,
+      );
     }
 
     const authoritative = this.localSessionId
@@ -243,8 +243,10 @@ export class MatchScene {
       const errorX = authoritative.x - local.root.position.x;
       const errorZ = authoritative.z - local.root.position.z;
 
-      if (errorX * errorX + errorZ * errorZ > 0.75 * 0.75) {
-        const correction = 1 - Math.exp(-8 * dt);
+      const thresholdSquared = LOCAL_CORRECTION_THRESHOLD * LOCAL_CORRECTION_THRESHOLD;
+
+      if (errorX * errorX + errorZ * errorZ > thresholdSquared) {
+        const correction = smoothingFactor(LOCAL_CORRECTION_RATE, dt);
         local.root.position.x += errorX * correction;
         local.root.position.z += errorZ * correction;
       }
@@ -297,7 +299,7 @@ export class MatchScene {
       return;
     }
 
-    const smoothing = 1 - Math.exp(-12 * dt);
+    const smoothing = smoothingFactor(REMOTE_INTERPOLATION_RATE, dt);
 
     for (const [sessionId, entry] of this.characters) {
       if (entry.isLocal) {

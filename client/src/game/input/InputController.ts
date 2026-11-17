@@ -1,7 +1,4 @@
-export interface MovementAxes {
-  moveX: number;
-  moveZ: number;
-}
+import type { MovementAxes } from "@island-cases/shared";
 
 export class InputController {
   private readonly keys = new Set<string>();

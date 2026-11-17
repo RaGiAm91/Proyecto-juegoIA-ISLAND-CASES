@@ -1,4 +1,4 @@
-import { ROOM_NAME } from "@island-cases/shared";
+import { CLIENT_MESSAGES, DEFAULT_SERVER_PORT, ROOM_NAME } from "@island-cases/shared";
 import type { MatchStateView, PlayerInput, PlayerView } from "@island-cases/shared";
 import { Callbacks, Client, CloseCode, type Room } from "@colyseus/sdk";
 
@@ -22,7 +22,7 @@ function resolveServerUrl(): string {
   const host = window.location.hostname || "localhost";
   const protocol = window.location.protocol === "https:" ? "https:" : "http:";
 
-  return `${protocol}//${host}:2567`;
+  return `${protocol}//${host}:${DEFAULT_SERVER_PORT}`;
 }
 
 export class NetworkClient {
@@ -106,7 +106,7 @@ export class NetworkClient {
     }
 
     this.sequence += 1;
-    this.room.send("player:input", { ...input, seq: this.sequence });
+    this.room.send(CLIENT_MESSAGES.PLAYER_INPUT, { ...input, seq: this.sequence });
   }
 
   leave(): void {
