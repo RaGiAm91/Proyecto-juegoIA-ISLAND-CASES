@@ -1,4 +1,5 @@
 import type { MovementAxes } from "./types.js";
+import { resolveCollisions, type Obstacle } from "./world.js";
 
 export interface MutablePosition {
   x: number;
@@ -30,11 +31,16 @@ export function applyMovement(
   speed: number,
   dt: number,
   bounds: number,
+  obstacles: readonly Obstacle[] = [],
 ): void {
   const normalized = normalizeAxes(axes);
 
   player.x = clamp(player.x + normalized.moveX * speed * dt, -bounds, bounds);
   player.z = clamp(player.z + normalized.moveZ * speed * dt, -bounds, bounds);
+
+  if (obstacles.length > 0) {
+    resolveCollisions(player, obstacles);
+  }
 }
 
 export function lerpAngle(from: number, to: number, amount: number): number {

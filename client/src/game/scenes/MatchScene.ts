@@ -4,6 +4,7 @@ import {
   lerpAngle,
   LOCAL_CORRECTION_RATE,
   LOCAL_CORRECTION_THRESHOLD,
+  MANSION_OBSTACLES,
   PLAYER_SPEED,
   REMOTE_INTERPOLATION_RATE,
   ROOM_BOUNDS,
@@ -232,6 +233,7 @@ export class MatchScene {
         PLAYER_SPEED,
         dt,
         ROOM_BOUNDS,
+        MANSION_OBSTACLES,
       );
     }
 

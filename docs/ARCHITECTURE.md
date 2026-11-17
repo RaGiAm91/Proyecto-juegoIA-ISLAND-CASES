@@ -5,7 +5,7 @@
 ```text
 client/   Vite + React + Babylon + Colyseus SDK
 server/   Express + Colyseus + reglas autoritativas
-shared/   protocolo, tipos, constantes, validación Zod y matemáticas puras
+shared/   protocolo, tipos, constantes, validación Zod, matemáticas puras y layout de colisiones
 ```
 
 `shared` se compila a `dist` y se consume como workspace. `client` y `server` no se importan entre sí.
@@ -17,7 +17,9 @@ shared/   protocolo, tipos, constantes, validación Zod y matemáticas puras
 - `messages.ts`: nombres y payloads tipados de mensajes cliente-servidor.
 - `validation.ts`: esquemas Zod para entradas y nombres.
 - `math.ts`: movimiento planar, normalización, límites, interpolación angular y suavizado.
+- `world.ts`: obstáculos AABB de la mansión y resolución de colisiones circle-vs-AABB.
 - El servidor aplica `applyMovement` en su tick autoritativo y el cliente usa la misma función para predicción local.
+- Ambos pasan `MANSION_OBSTACLES` a `applyMovement`, así que la predicción y la autoridad resuelven las mismas colisiones.
 
 ## Flujo de red
 
@@ -48,11 +50,17 @@ cliente -> interpolación -> personajes remotos
 - Escena de prueba construida con primitivas y materiales PBR.
 - Personajes placeholder con cuerpo, cabeza, sombrero, sombra y placa de nombre.
 - La cámara sigue al jugador local; los remotos se interpolan.
+- La mesa, las sillas y la chimenea tienen obstáculos AABB en `shared/world.ts` que coinciden con el blockout.
+
+## Colisiones
+
+- Los personajes se modelan como círculos de `PLAYER_RADIUS` y los obstáculos como AABB estáticos.
+- `resolveCollisions` empuja al jugador hacia el lado más cercano o fuera de la cara del AABB más próxima.
+- El cliente y el servidor usan el mismo layout, por lo que la predicción local no atraviesa muebles.
 
 ## Siguientes cortes verticales
 
-1. Colisiones y navegación por la mansión.
-2. Lobby, equipos y parejas.
-3. Expediente, pistas e inspección.
-4. Eventos, muerte y espectador.
-5. Puntuación, resultados y administración.
+1. Lobby, equipos y parejas.
+2. Expediente, pistas e inspección.
+3. Eventos, muerte y espectador.
+4. Puntuación, resultados y administración.
