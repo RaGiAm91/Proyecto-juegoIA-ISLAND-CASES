@@ -4,6 +4,7 @@ import {
   DEFAULT_PLAYER_NAME,
   joinOptionsSchema,
   MATCH_PHASES,
+  MANSION_OBSTACLES,
   MAX_PLAYERS,
   playerInputSchema,
   PLAYER_SPEED,
@@ -104,7 +105,7 @@ export class MatchRoom extends Room {
         continue;
       }
 
-      applyMovement(player, input, PLAYER_SPEED, dt, ROOM_BOUNDS);
+      applyMovement(player, input, PLAYER_SPEED, dt, ROOM_BOUNDS, MANSION_OBSTACLES);
       player.rotation = input.yaw;
     }
   }
