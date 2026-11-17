@@ -9,6 +9,7 @@ export const INPUT_SEND_RATE = 30;
 export const PLAYER_SPEED = 4;
 export const ROOM_BOUNDS = 9;
 export const PLAYER_HEIGHT = 1.8;
+export const PLAYER_RADIUS = 0.35;
 
 export const MIN_PLAYER_NAME_LENGTH = 1;
 export const MAX_PLAYER_NAME_LENGTH = 20;
