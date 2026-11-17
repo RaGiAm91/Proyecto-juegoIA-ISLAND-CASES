@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { PlayerView } from "@island-cases/shared";
+import {
+  DEFAULT_PLAYER_NAME,
+  MAX_PLAYER_NAME_LENGTH,
+  MAX_PLAYERS,
+  type PlayerView,
+} from "@island-cases/shared";
 
 import styles from "./App.module.css";
 import { NetworkClient, type ConnectionStatus } from "./game/net/NetworkClient";
@@ -20,7 +25,7 @@ export default function App(): React.JSX.Element {
   const networkRef = useRef<NetworkClient | null>(null);
   const sceneRef = useRef<MatchScene | null>(null);
 
-  const [name, setName] = useState("Investigador");
+  const [name, setName] = useState(DEFAULT_PLAYER_NAME);
   const [joined, setJoined] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState<ConnectionStatus>("idle");
@@ -52,7 +57,7 @@ export default function App(): React.JSX.Element {
     sceneRef.current = scene;
 
     try {
-      await network.connect(name.trim() || "Investigador", {
+      await network.connect(name.trim() || DEFAULT_PLAYER_NAME, {
         onStatus: (nextStatus, message) => {
           setStatus(nextStatus);
           setStatusMessage(message ?? "");
@@ -115,7 +120,7 @@ export default function App(): React.JSX.Element {
             <p className={styles.panelEyebrow}>INVESTIGADORES</p>
             <p className={styles.playerCount}>
               {playerCount.toString().padStart(2, "0")}
-              <span> / 20</span>
+              <span> / {MAX_PLAYERS}</span>
             </p>
             <div className={styles.divider} />
             <p className={styles.panelLabel}>CONTROLES</p>
@@ -169,7 +174,7 @@ export default function App(): React.JSX.Element {
                 id="investigator-name"
                 className={styles.input}
                 value={name}
-                maxLength={20}
+                maxLength={MAX_PLAYER_NAME_LENGTH}
                 onChange={(event) => setName(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {

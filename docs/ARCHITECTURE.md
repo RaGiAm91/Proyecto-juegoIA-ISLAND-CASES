@@ -5,10 +5,19 @@
 ```text
 client/   Vite + React + Babylon + Colyseus SDK
 server/   Express + Colyseus + reglas autoritativas
-shared/   protocolo, tipos, constantes y validación Zod
+shared/   protocolo, tipos, constantes, validación Zod y matemáticas puras
 ```
 
 `shared` se compila a `dist` y se consume como workspace. `client` y `server` no se importan entre sí.
+
+## Paquete shared
+
+- `constants.ts`: versión de protocolo, nombre de sala, límites, ritmos y constantes de predicción.
+- `types.ts`: entrada de movimiento, opciones de entrada, vista de jugador y vista de estado.
+- `messages.ts`: nombres y payloads tipados de mensajes cliente-servidor.
+- `validation.ts`: esquemas Zod para entradas y nombres.
+- `math.ts`: movimiento planar, normalización, límites, interpolación angular y suavizado.
+- El servidor aplica `applyMovement` en su tick autoritativo y el cliente usa la misma función para predicción local.
 
 ## Flujo de red
 
@@ -23,7 +32,7 @@ cliente -> interpolación -> personajes remotos
 - Input del cliente: 30 Hz.
 - Estado sincronizado mínimo: posición, rotación, nombre y conexión.
 - El servidor valida y normaliza el movimiento; nunca confía en posiciones enviadas por el cliente.
-- El cliente predice su movimiento y corrige si el error supera 0,75 m.
+- El cliente predice su movimiento con la misma función pura y corrige si el error supera 0,75 m.
 
 ## Colyseus 0.18
 

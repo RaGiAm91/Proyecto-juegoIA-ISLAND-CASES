@@ -1,5 +1,10 @@
 import {
+  applyMovement,
+  CLIENT_MESSAGES,
+  DEFAULT_PLAYER_NAME,
   joinOptionsSchema,
+  MATCH_PHASES,
+  MAX_PLAYERS,
   playerInputSchema,
   PLAYER_SPEED,
   ROOM_BOUNDS,
@@ -8,7 +13,6 @@ import {
 import type { JoinOptions, PlayerInput } from "@island-cases/shared";
 import { Room, type Client, type CloseCode, validate } from "colyseus";
 
-import { applyMovement } from "../gameplay/movement.js";
 import { MatchState, PlayerState } from "./schema/MatchState.js";
 
 const SPAWN_POINTS = Array.from({ length: 20 }, (_, index) => ({
@@ -17,23 +21,26 @@ const SPAWN_POINTS = Array.from({ length: 20 }, (_, index) => ({
 }));
 
 export class MatchRoom extends Room {
-  override maxClients = 20;
+  override maxClients = MAX_PLAYERS;
   override state = new MatchState();
 
   private readonly lastInputs = new Map<string, PlayerInput>();
   private readonly lastSequences = new Map<string, number>();
 
   override messages = {
-    "player:input": validate(playerInputSchema, (client: Client, input: PlayerInput) => {
-      const previousSequence = this.lastSequences.get(client.sessionId) ?? -1;
+    [CLIENT_MESSAGES.PLAYER_INPUT]: validate(
+      playerInputSchema,
+      (client: Client, input: PlayerInput) => {
+        const previousSequence = this.lastSequences.get(client.sessionId) ?? -1;
 
-      if (input.seq <= previousSequence) {
-        return;
-      }
+        if (input.seq <= previousSequence) {
+          return;
+        }
 
-      this.lastSequences.set(client.sessionId, input.seq);
-      this.lastInputs.set(client.sessionId, input);
-    }),
+        this.lastSequences.set(client.sessionId, input.seq);
+        this.lastInputs.set(client.sessionId, input);
+      },
+    ),
   };
 
   override onCreate(): void {
@@ -42,7 +49,7 @@ export class MatchRoom extends Room {
 
   override onJoin(client: Client, options: unknown): void {
     const parsed = joinOptionsSchema.safeParse(options);
-    const name = parsed.success ? parsed.data.name : "Investigador";
+    const name = parsed.success ? parsed.data.name : DEFAULT_PLAYER_NAME;
     const spawn = SPAWN_POINTS[this.state.players.size % SPAWN_POINTS.length] ?? SPAWN_POINTS[0];
 
     const player = new PlayerState();
@@ -51,7 +58,7 @@ export class MatchRoom extends Room {
     player.z = spawn?.z ?? 0;
 
     this.state.players.set(client.sessionId, player);
-    this.state.phase = this.state.players.size > 1 ? "PLAYING" : "WAITING";
+    this.state.phase = this.state.players.size > 1 ? MATCH_PHASES.PLAYING : MATCH_PHASES.WAITING;
     this.lastInputs.set(client.sessionId, { seq: 0, moveX: 0, moveZ: 0, yaw: 0 });
   }
 
@@ -77,7 +84,7 @@ export class MatchRoom extends Room {
     this.state.players.delete(client.sessionId);
     this.lastInputs.delete(client.sessionId);
     this.lastSequences.delete(client.sessionId);
-    this.state.phase = this.state.players.size > 1 ? "PLAYING" : "WAITING";
+    this.state.phase = this.state.players.size > 1 ? MATCH_PHASES.PLAYING : MATCH_PHASES.WAITING;
   }
 
   override onDispose(): void {
