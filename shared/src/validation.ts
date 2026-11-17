@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import type { JoinOptions, PlayerInput } from "./protocol.js";
+import { MAX_PLAYER_NAME_LENGTH, MIN_PLAYER_NAME_LENGTH } from "./constants.js";
+import type { JoinOptions, PlayerInput } from "./types.js";
 
 export const playerInputSchema: z.ZodType<PlayerInput> = z.object({
   seq: z.number().int().nonnegative(),
@@ -9,11 +10,13 @@ export const playerInputSchema: z.ZodType<PlayerInput> = z.object({
   yaw: z.number().finite(),
 });
 
+export const playerNameSchema = z
+  .string()
+  .trim()
+  .min(MIN_PLAYER_NAME_LENGTH)
+  .max(MAX_PLAYER_NAME_LENGTH)
+  .transform((name) => name.replace(/\s+/g, " "));
+
 export const joinOptionsSchema: z.ZodType<JoinOptions> = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1)
-    .max(20)
-    .transform((name) => name.replace(/\s+/g, " ")),
+  name: playerNameSchema,
 });

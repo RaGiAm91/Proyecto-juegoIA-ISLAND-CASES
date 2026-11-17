@@ -1,4 +1,4 @@
-import { PROTOCOL_VERSION } from "@island-cases/shared";
+import { PROTOCOL_VERSION, ROOM_NAME } from "@island-cases/shared";
 import { defineRoom, defineServer } from "colyseus";
 import cors from "cors";
 import express from "express";
@@ -8,7 +8,7 @@ import { MatchRoom } from "./rooms/MatchRoom.js";
 
 export const server = defineServer({
   rooms: {
-    match: defineRoom(MatchRoom),
+    [ROOM_NAME]: defineRoom(MatchRoom),
   },
   express: (app) => {
     app.use(cors({ origin: true, credentials: true }));
