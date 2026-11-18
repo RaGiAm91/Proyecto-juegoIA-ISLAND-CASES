@@ -6,7 +6,7 @@ Juego 3D multijugador de investigación y misterio en una mansión isleña de 19
 
 - Fase 0 y primera demo multijugador en construcción.
 - El objetivo inmediato es una escena 3D estable con dos personajes visibles y sincronizados.
-- Investigación, pistas, eventos, terror, muerte, espectador, chat y puntuación quedan fuera de esta fase.
+- Investigación básica, pistas e inspección en construcción; eventos, terror, muerte, espectador, chat y puntuación quedan fuera de esta fase.
 
 ## Comandos
 

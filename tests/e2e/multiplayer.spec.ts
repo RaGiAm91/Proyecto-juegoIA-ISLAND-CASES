@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 interface DebugSnapshot {
   local: { x: number; z: number } | null;
+  authoritative: { x: number; z: number } | null;
   remote: Array<{ sessionId: string; x: number; z: number }>;
 }
 
@@ -36,6 +37,34 @@ async function readyUp(page: Page): Promise<void> {
   await expect(page.getByTestId("ready-button")).toHaveAttribute("aria-pressed", "true");
 }
 
+function distanceTo(point: { x: number; z: number }, target: { x: number; z: number }): number {
+  return Math.hypot(target.x - point.x, target.z - point.z);
+}
+
+async function moveTowards(page: Page, target: { x: number; z: number }): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const point = (await readSnapshot(page)).authoritative;
+
+    if (!point) {
+      throw new Error("El jugador autoritativo aún no está disponible.");
+    }
+
+    if (distanceTo(point, target) < 1) {
+      return;
+    }
+
+    const deltaX = target.x - point.x;
+    const deltaZ = target.z - point.z;
+    const key =
+      Math.abs(deltaZ) >= Math.abs(deltaX) ? (deltaZ > 0 ? "w" : "s") : deltaX > 0 ? "d" : "a";
+
+    await page.keyboard.down(key);
+    await page.waitForTimeout(80);
+    await page.keyboard.up(key);
+    await page.waitForTimeout(200);
+  }
+}
+
 async function readSnapshot(page: Page): Promise<DebugSnapshot> {
   const snapshot = await page.evaluate(() =>
     (window as DebugWindow).__islandCasesDebug?.getSnapshot(),
@@ -48,8 +77,10 @@ async function readSnapshot(page: Page): Promise<DebugSnapshot> {
   return snapshot;
 }
 
-test("dos investigadores forman pareja y sincronizan movimiento", async ({ browser }) => {
-  test.setTimeout(60_000);
+test("dos investigadores forman pareja, registran una pista y sincronizan movimiento", async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
 
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
@@ -82,13 +113,13 @@ test("dos investigadores forman pareja y sincronizan movimiento", async ({ brows
   await expect(pageB.getByTestId("match-phase")).toHaveAttribute("data-phase", "PLAYING");
   await expect(pageA.getByTestId("lobby")).toHaveCount(0);
   await expect(pageB.getByTestId("lobby")).toHaveCount(0);
+  await expect(pageA.getByTestId("dossier")).toHaveAttribute("data-clues", "0");
 
   const before = await readSnapshot(pageB);
   expect(before.remote).toHaveLength(1);
 
-  await pageA.keyboard.down("w");
-  await pageA.waitForTimeout(900);
-  await pageA.keyboard.up("w");
+  await moveTowards(pageA, { x: -6, z: -2.2 });
+  await pageA.waitForTimeout(200);
 
   await expect
     .poll(
@@ -105,7 +136,13 @@ test("dos investigadores forman pareja y sincronizan movimiento", async ({ brows
       },
       { timeout: 5_000 },
     )
-    .toBeGreaterThan(0.2);
+    .toBeGreaterThan(0.15);
+
+  await expect(pageA.getByTestId("clue-prompt")).toBeVisible({ timeout: 5_000 });
+  await pageA.keyboard.press("e");
+  await expect(pageA.getByTestId("dossier")).toHaveAttribute("data-clues", "1");
+  await expect(pageA.locator('[data-clue="guest-book"]')).toHaveAttribute("data-found", "true");
+  await expect(pageB.getByTestId("dossier")).toHaveAttribute("data-clues", "1");
 
   await pageA.screenshot({ path: "test-results/multiplayer-a.png" });
   await pageB.screenshot({ path: "test-results/multiplayer-b.png" });

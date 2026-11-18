@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  CLUES,
   DEFAULT_PLAYER_NAME,
   MATCH_PHASES,
   MAX_PLAYER_NAME_LENGTH,
   MAX_PLAYERS,
   MAX_TEAMS,
+  type ClueDefinition,
   type MatchStateView,
   type PlayerView,
 } from "@island-cases/shared";
@@ -35,6 +37,7 @@ export default function App(): React.JSX.Element {
   const [statusMessage, setStatusMessage] = useState("");
   const [playerCount, setPlayerCount] = useState(0);
   const [matchState, setMatchState] = useState<MatchStateView | null>(null);
+  const [nearbyClue, setNearbyClue] = useState<ClueDefinition | null>(null);
   const [stats, setStats] = useState<SceneStats>({ fps: 0, players: 0 });
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export default function App(): React.JSX.Element {
     setStatusMessage("");
 
     const network = new NetworkClient();
-    const scene = new MatchScene(canvas, network, setStats);
+    const scene = new MatchScene(canvas, network, setStats, setNearbyClue);
     networkRef.current = network;
     sceneRef.current = scene;
 
@@ -84,6 +87,7 @@ export default function App(): React.JSX.Element {
       sceneRef.current = null;
       networkRef.current = null;
       setMatchState(null);
+      setNearbyClue(null);
     } finally {
       setConnecting(false);
     }
@@ -99,6 +103,7 @@ export default function App(): React.JSX.Element {
     setStatusMessage("");
     setPlayerCount(0);
     setMatchState(null);
+    setNearbyClue(null);
     setStats({ fps: 0, players: 0 });
   }, []);
 
@@ -109,6 +114,12 @@ export default function App(): React.JSX.Element {
     index,
     members: [...(matchState?.players.values() ?? [])].filter((player) => player.team === index),
   })).filter((team) => team.members.length > 0);
+
+  const localTeam = matchState?.players.get(networkRef.current?.sessionId ?? "")?.team;
+  const discoveredClues =
+    (localTeam === undefined
+      ? undefined
+      : matchState?.teams.get(String(localTeam))?.discoveredClues) ?? [];
 
   return (
     <main className={styles.app}>
@@ -161,6 +172,43 @@ export default function App(): React.JSX.Element {
                 {localReady ? "Cancelar listo" : "Listo"}
               </button>
             </section>
+          )}
+
+          {phase === MATCH_PHASES.PLAYING && (
+            <section
+              className={styles.dossier}
+              data-testid="dossier"
+              data-clues={discoveredClues.length}
+            >
+              <p className={styles.panelEyebrow}>EXPEDIENTE 001</p>
+              <p className={styles.dossierTitle}>
+                Pistas registradas {discoveredClues.length}/{CLUES.length}
+              </p>
+              <ul className={styles.clueList}>
+                {CLUES.map((clue) => {
+                  const found = discoveredClues.includes(clue.id);
+
+                  return (
+                    <li
+                      key={clue.id}
+                      className={found ? styles.clueFound : styles.clueMissing}
+                      data-clue={clue.id}
+                      data-found={found}
+                    >
+                      <strong>{found ? clue.title : "Pista sin registrar"}</strong>
+                      {found && <span>{clue.detail}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+
+          {phase === MATCH_PHASES.PLAYING && nearbyClue && (
+            <div className={styles.interactionPrompt} data-testid="clue-prompt">
+              <kbd>E</kbd>
+              <span>Registrar pista: {nearbyClue.title}</span>
+            </div>
           )}
 
           <aside className={styles.panel} data-testid="player-panel" data-players={stats.players}>

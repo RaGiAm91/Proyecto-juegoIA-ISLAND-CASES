@@ -1,8 +1,9 @@
-import type { PlayerInput, ReadyPayload } from "./types.js";
+import type { InspectPayload, PlayerInput, ReadyPayload } from "./types.js";
 
 export const CLIENT_MESSAGES = {
   PLAYER_INPUT: "player:input",
   LOBBY_READY: "lobby:ready",
+  CLUE_INSPECT: "clue:inspect",
 } as const;
 
 export type ClientMessageName = (typeof CLIENT_MESSAGES)[keyof typeof CLIENT_MESSAGES];
@@ -10,6 +11,7 @@ export type ClientMessageName = (typeof CLIENT_MESSAGES)[keyof typeof CLIENT_MES
 export interface ClientMessagePayloads {
   [CLIENT_MESSAGES.PLAYER_INPUT]: PlayerInput;
   [CLIENT_MESSAGES.LOBBY_READY]: ReadyPayload;
+  [CLIENT_MESSAGES.CLUE_INSPECT]: InspectPayload;
 }
 
 export type ClientMessage = {

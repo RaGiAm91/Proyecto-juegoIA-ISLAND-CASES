@@ -3,8 +3,11 @@ import {
   assignTeam,
   canStartMatch,
   CLIENT_MESSAGES,
+  CLUE_BY_ID,
   COUNTDOWN_SECONDS,
   DEFAULT_PLAYER_NAME,
+  inspectSchema,
+  isClueInRange,
   joinOptionsSchema,
   MATCH_PHASES,
   MANSION_OBSTACLES,
@@ -15,10 +18,10 @@ import {
   ROOM_BOUNDS,
   TICK_RATE,
 } from "@island-cases/shared";
-import type { JoinOptions, PlayerInput, ReadyPayload } from "@island-cases/shared";
+import type { InspectPayload, JoinOptions, PlayerInput, ReadyPayload } from "@island-cases/shared";
 import { Room, type Client, type CloseCode, validate } from "colyseus";
 
-import { MatchState, PlayerState } from "./schema/MatchState.js";
+import { MatchState, PlayerState, TeamState } from "./schema/MatchState.js";
 
 const SPAWN_POINTS = Array.from({ length: 20 }, (_, index) => ({
   x: -6 + (index % 5) * 3,
@@ -59,6 +62,27 @@ export class MatchRoom extends Room {
         this.updateLobby();
       },
     ),
+    [CLIENT_MESSAGES.CLUE_INSPECT]: validate(
+      inspectSchema,
+      (client: Client, payload: InspectPayload) => {
+        if (this.state.phase !== MATCH_PHASES.PLAYING) {
+          return;
+        }
+
+        const player = this.state.players.get(client.sessionId);
+        const clue = CLUE_BY_ID.get(payload.clueId);
+
+        if (!player || !player.connected || !clue || !isClueInRange(clue, player.x, player.z)) {
+          return;
+        }
+
+        const team = this.state.teams.get(String(player.team));
+
+        if (team && !team.discoveredClues.includes(payload.clueId)) {
+          team.discoveredClues.push(payload.clueId);
+        }
+      },
+    ),
   };
 
   override onCreate(): void {
@@ -78,6 +102,7 @@ export class MatchRoom extends Room {
     player.team = assignTeam(index);
 
     this.state.players.set(client.sessionId, player);
+    this.ensureTeam(player.team);
     this.lastInputs.set(client.sessionId, { seq: 0, moveX: 0, moveZ: 0, yaw: 0 });
     this.updateLobby();
   }
@@ -115,12 +140,23 @@ export class MatchRoom extends Room {
     this.lastSequences.clear();
   }
 
+  private ensureTeam(team: number): void {
+    const key = String(team);
+
+    if (!this.state.teams.has(key)) {
+      this.state.teams.set(key, new TeamState());
+    }
+  }
+
   private resetLobby(): void {
     let index = 0;
+
+    this.state.teams.clear();
 
     for (const player of this.state.players.values()) {
       player.team = assignTeam(index);
       player.ready = false;
+      this.ensureTeam(player.team);
       index += 1;
     }
 
