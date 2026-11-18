@@ -13,6 +13,20 @@ export interface NetworkEvents {
   onMatchState: (state: MatchStateView) => void;
 }
 
+function snapshotState(state: MatchStateView): MatchStateView {
+  const players = new Map<string, PlayerView>();
+
+  for (const [sessionId, player] of state.players) {
+    players.set(sessionId, { ...player });
+  }
+
+  return {
+    phase: state.phase,
+    countdown: state.countdown,
+    players,
+  };
+}
+
 function resolveServerUrl(): string {
   const configuredUrl = import.meta.env.VITE_SERVER_URL;
 
@@ -74,7 +88,7 @@ export class NetworkClient {
         events.onPlayerCount(view.players?.size ?? 0);
 
         if (view.players && view.phase && typeof view.countdown === "number") {
-          events.onMatchState(view as MatchStateView);
+          events.onMatchState(snapshotState(view as MatchStateView));
         }
       });
 
@@ -99,7 +113,7 @@ export class NetworkClient {
       events.onPlayerCount(this.state?.players.size ?? 0);
 
       if (this.state) {
-        events.onMatchState(this.state);
+        events.onMatchState(snapshotState(this.state));
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo conectar";
