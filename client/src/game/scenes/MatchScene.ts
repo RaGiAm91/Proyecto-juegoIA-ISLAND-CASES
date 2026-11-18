@@ -316,7 +316,8 @@ export class MatchScene {
     this.camera.target.copyFrom(local.root.position);
     this.camera.target.y += 1.4;
 
-    const nearbyClue = findNearbyClue(local.root.position.x, local.root.position.z);
+    const promptPosition = authoritative ?? local.root.position;
+    const nearbyClue = findNearbyClue(promptPosition.x, promptPosition.z);
     const shouldInteract = this.input.consumeInteract();
     this.onInteraction(nearbyClue);
 
