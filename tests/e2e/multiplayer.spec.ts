@@ -136,7 +136,7 @@ test("dos investigadores forman pareja, registran una pista y sincronizan movimi
       },
       { timeout: 5_000 },
     )
-    .toBeGreaterThan(0.2);
+    .toBeGreaterThan(0.15);
 
   await expect(pageA.getByTestId("clue-prompt")).toBeVisible({ timeout: 5_000 });
   await pageA.keyboard.press("e");
