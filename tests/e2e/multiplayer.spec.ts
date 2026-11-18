@@ -31,6 +31,11 @@ async function join(page: Page, name: string): Promise<void> {
   await expect(page.getByText("EN LÍNEA", { exact: true })).toBeVisible();
 }
 
+async function readyUp(page: Page): Promise<void> {
+  await page.getByTestId("ready-button").click();
+  await expect(page.getByTestId("ready-button")).toHaveAttribute("aria-pressed", "true");
+}
+
 async function readSnapshot(page: Page): Promise<DebugSnapshot> {
   const snapshot = await page.evaluate(() =>
     (window as DebugWindow).__islandCasesDebug?.getSnapshot(),
@@ -43,7 +48,9 @@ async function readSnapshot(page: Page): Promise<DebugSnapshot> {
   return snapshot;
 }
 
-test("dos investigadores se ven y sincronizan movimiento", async ({ browser }) => {
+test("dos investigadores forman pareja y sincronizan movimiento", async ({ browser }) => {
+  test.setTimeout(60_000);
+
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
   const pageA = await contextA.newPage();
@@ -57,6 +64,24 @@ test("dos investigadores se ven y sincronizan movimiento", async ({ browser }) =
   await join(pageB, "Borges");
   await expect(pageA.getByTestId("player-panel")).toHaveAttribute("data-players", "2");
   await expect(pageB.getByTestId("player-panel")).toHaveAttribute("data-players", "2");
+
+  await expect(pageA.getByTestId("lobby")).toHaveAttribute("data-phase", "WAITING");
+  await expect(pageB.getByTestId("lobby")).toHaveAttribute("data-phase", "WAITING");
+  await expect(pageA.getByTestId("lobby")).toContainText("Ada");
+  await expect(pageA.getByTestId("lobby")).toContainText("Borges");
+  await expect(pageA.getByTestId("lobby")).toContainText("EQUIPO 01");
+
+  await readyUp(pageA);
+  await readyUp(pageB);
+
+  await expect
+    .poll(async () => pageA.getByTestId("match-phase").getAttribute("data-phase"), {
+      timeout: 10_000,
+    })
+    .toBe("PLAYING");
+  await expect(pageB.getByTestId("match-phase")).toHaveAttribute("data-phase", "PLAYING");
+  await expect(pageA.getByTestId("lobby")).toHaveCount(0);
+  await expect(pageB.getByTestId("lobby")).toHaveCount(0);
 
   const before = await readSnapshot(pageB);
   expect(before.remote).toHaveLength(1);

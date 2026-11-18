@@ -16,6 +16,10 @@ export interface JoinOptions {
   name: string;
 }
 
+export interface ReadyPayload {
+  ready: boolean;
+}
+
 export interface PlayerView {
   x: number;
   y: number;
@@ -23,9 +27,12 @@ export interface PlayerView {
   rotation: number;
   name: string;
   connected: boolean;
+  team: number;
+  ready: boolean;
 }
 
 export interface MatchStateView {
   phase: MatchPhase;
+  countdown: number;
   players: ReadonlyMap<string, PlayerView>;
 }

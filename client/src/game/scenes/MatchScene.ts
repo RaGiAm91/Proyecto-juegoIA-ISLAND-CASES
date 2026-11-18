@@ -4,6 +4,7 @@ import {
   lerpAngle,
   LOCAL_CORRECTION_RATE,
   LOCAL_CORRECTION_THRESHOLD,
+  MATCH_PHASES,
   MANSION_OBSTACLES,
   PLAYER_SPEED,
   REMOTE_INTERPOLATION_RATE,
@@ -208,6 +209,12 @@ export class MatchScene {
     const local = this.localView;
 
     if (!local) {
+      return;
+    }
+
+    if (this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+      this.camera.target.copyFrom(local.root.position);
+      this.camera.target.y += 1.4;
       return;
     }
 

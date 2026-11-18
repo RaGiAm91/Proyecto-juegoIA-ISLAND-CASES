@@ -1,6 +1,9 @@
 import {
   applyMovement,
+  assignTeam,
+  canStartMatch,
   CLIENT_MESSAGES,
+  COUNTDOWN_SECONDS,
   DEFAULT_PLAYER_NAME,
   joinOptionsSchema,
   MATCH_PHASES,
@@ -8,10 +11,11 @@ import {
   MAX_PLAYERS,
   playerInputSchema,
   PLAYER_SPEED,
+  readySchema,
   ROOM_BOUNDS,
   TICK_RATE,
 } from "@island-cases/shared";
-import type { JoinOptions, PlayerInput } from "@island-cases/shared";
+import type { JoinOptions, PlayerInput, ReadyPayload } from "@island-cases/shared";
 import { Room, type Client, type CloseCode, validate } from "colyseus";
 
 import { MatchState, PlayerState } from "./schema/MatchState.js";
@@ -42,6 +46,19 @@ export class MatchRoom extends Room {
         this.lastInputs.set(client.sessionId, input);
       },
     ),
+    [CLIENT_MESSAGES.LOBBY_READY]: validate(
+      readySchema,
+      (client: Client, payload: ReadyPayload) => {
+        const player = this.state.players.get(client.sessionId);
+
+        if (!player) {
+          return;
+        }
+
+        player.ready = payload.ready;
+        this.updateLobby();
+      },
+    ),
   };
 
   override onCreate(): void {
@@ -51,16 +68,18 @@ export class MatchRoom extends Room {
   override onJoin(client: Client, options: unknown): void {
     const parsed = joinOptionsSchema.safeParse(options);
     const name = parsed.success ? parsed.data.name : DEFAULT_PLAYER_NAME;
-    const spawn = SPAWN_POINTS[this.state.players.size % SPAWN_POINTS.length] ?? SPAWN_POINTS[0];
+    const index = this.state.players.size;
+    const spawn = SPAWN_POINTS[index % SPAWN_POINTS.length] ?? SPAWN_POINTS[0];
 
     const player = new PlayerState();
     player.name = name;
     player.x = spawn?.x ?? 0;
     player.z = spawn?.z ?? 0;
+    player.team = assignTeam(index);
 
     this.state.players.set(client.sessionId, player);
-    this.state.phase = this.state.players.size > 1 ? MATCH_PHASES.PLAYING : MATCH_PHASES.WAITING;
     this.lastInputs.set(client.sessionId, { seq: 0, moveX: 0, moveZ: 0, yaw: 0 });
+    this.updateLobby();
   }
 
   override onDrop(client: Client, _code: CloseCode): void {
@@ -71,6 +90,7 @@ export class MatchRoom extends Room {
     }
 
     this.allowReconnection(client, 30);
+    this.updateLobby();
   }
 
   override onReconnect(client: Client): void {
@@ -79,13 +99,15 @@ export class MatchRoom extends Room {
     if (player) {
       player.connected = true;
     }
+
+    this.updateLobby();
   }
 
   override onLeave(client: Client, _code: CloseCode): void {
     this.state.players.delete(client.sessionId);
     this.lastInputs.delete(client.sessionId);
     this.lastSequences.delete(client.sessionId);
-    this.state.phase = this.state.players.size > 1 ? MATCH_PHASES.PLAYING : MATCH_PHASES.WAITING;
+    this.resetLobby();
   }
 
   override onDispose(): void {
@@ -93,7 +115,54 @@ export class MatchRoom extends Room {
     this.lastSequences.clear();
   }
 
+  private resetLobby(): void {
+    let index = 0;
+
+    for (const player of this.state.players.values()) {
+      player.team = assignTeam(index);
+      player.ready = false;
+      index += 1;
+    }
+
+    this.state.phase = MATCH_PHASES.WAITING;
+    this.state.countdown = 0;
+  }
+
+  private updateLobby(): void {
+    if (this.state.phase === MATCH_PHASES.PLAYING) {
+      return;
+    }
+
+    if (canStartMatch([...this.state.players.values()])) {
+      if (this.state.phase !== MATCH_PHASES.COUNTDOWN) {
+        this.state.phase = MATCH_PHASES.COUNTDOWN;
+        this.state.countdown = COUNTDOWN_SECONDS;
+      }
+
+      return;
+    }
+
+    if (this.state.phase === MATCH_PHASES.COUNTDOWN) {
+      this.state.phase = MATCH_PHASES.WAITING;
+      this.state.countdown = 0;
+    }
+  }
+
   private step(dt: number): void {
+    if (this.state.phase === MATCH_PHASES.COUNTDOWN) {
+      this.state.countdown = Math.max(0, this.state.countdown - dt);
+
+      if (this.state.countdown === 0) {
+        this.state.phase = MATCH_PHASES.PLAYING;
+      }
+
+      return;
+    }
+
+    if (this.state.phase !== MATCH_PHASES.PLAYING) {
+      return;
+    }
+
     for (const [sessionId, player] of this.state.players) {
       if (!player.connected) {
         continue;

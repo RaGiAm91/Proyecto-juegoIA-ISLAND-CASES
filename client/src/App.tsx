@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   DEFAULT_PLAYER_NAME,
+  MATCH_PHASES,
   MAX_PLAYER_NAME_LENGTH,
   MAX_PLAYERS,
+  MAX_TEAMS,
+  type MatchStateView,
   type PlayerView,
 } from "@island-cases/shared";
 
@@ -31,6 +34,7 @@ export default function App(): React.JSX.Element {
   const [status, setStatus] = useState<ConnectionStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [playerCount, setPlayerCount] = useState(0);
+  const [matchState, setMatchState] = useState<MatchStateView | null>(null);
   const [stats, setStats] = useState<SceneStats>({ fps: 0, players: 0 });
 
   useEffect(() => {
@@ -69,6 +73,7 @@ export default function App(): React.JSX.Element {
           scene.removePlayer(sessionId);
         },
         onPlayerCount: setPlayerCount,
+        onMatchState: setMatchState,
       });
       setJoined(true);
     } catch (error) {
@@ -78,6 +83,7 @@ export default function App(): React.JSX.Element {
       network.leave();
       sceneRef.current = null;
       networkRef.current = null;
+      setMatchState(null);
     } finally {
       setConnecting(false);
     }
@@ -92,8 +98,17 @@ export default function App(): React.JSX.Element {
     setStatus("idle");
     setStatusMessage("");
     setPlayerCount(0);
+    setMatchState(null);
     setStats({ fps: 0, players: 0 });
   }, []);
+
+  const phase = matchState?.phase ?? MATCH_PHASES.WAITING;
+  const countdown = matchState?.countdown ?? 0;
+  const localReady = matchState?.players.get(networkRef.current?.sessionId ?? "")?.ready ?? false;
+  const teams = Array.from({ length: MAX_TEAMS }, (_, index) => ({
+    index,
+    members: [...(matchState?.players.values() ?? [])].filter((player) => player.team === index),
+  })).filter((team) => team.members.length > 0);
 
   return (
     <main className={styles.app}>
@@ -101,7 +116,7 @@ export default function App(): React.JSX.Element {
       <div className={styles.vignette} />
 
       {joined ? (
-        <div className={styles.hud}>
+        <div className={styles.hud} data-testid="match-phase" data-phase={phase}>
           <header className={styles.topbar}>
             <div className={styles.brandBlock}>
               <p className={styles.eyebrow}>ARCHIVO INSULAR · 1954</p>
@@ -115,6 +130,38 @@ export default function App(): React.JSX.Element {
               </button>
             </div>
           </header>
+
+          {phase !== MATCH_PHASES.PLAYING && (
+            <section className={styles.lobby} data-testid="lobby" data-phase={phase}>
+              <p className={styles.panelEyebrow}>SALA DE ESPERA</p>
+              <p className={styles.lobbyPhase}>
+                {phase === MATCH_PHASES.COUNTDOWN
+                  ? `SALIDA EN ${Math.ceil(countdown)}`
+                  : "ESPERANDO PAREJAS COMPLETAS"}
+              </p>
+              <div className={styles.teams}>
+                {teams.map((team) => (
+                  <div key={team.index} className={styles.teamRow}>
+                    <span>EQUIPO {String(team.index + 1).padStart(2, "0")}</span>
+                    <span>
+                      {team.members
+                        .map((member) => `${member.name}${member.ready ? " (listo)" : ""}`)
+                        .join(" · ")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className={styles.readyButton}
+                data-testid="ready-button"
+                aria-pressed={localReady}
+                onClick={() => networkRef.current?.sendReady(!localReady)}
+              >
+                {localReady ? "Cancelar listo" : "Listo"}
+              </button>
+            </section>
+          )}
 
           <aside className={styles.panel} data-testid="player-panel" data-players={stats.players}>
             <p className={styles.panelEyebrow}>INVESTIGADORES</p>
@@ -150,7 +197,12 @@ export default function App(): React.JSX.Element {
 
           <footer className={styles.footer}>
             <span>Salón principal · Mansión Blackwood</span>
-            <span>{statusMessage || "Explora la mansión. La investigación comienza pronto."}</span>
+            <span>
+              {statusMessage ||
+                (phase === MATCH_PHASES.PLAYING
+                  ? "Explora la mansión. La investigación ha comenzado."
+                  : "Forma pareja y pulsa listo para comenzar.")}
+            </span>
           </footer>
         </div>
       ) : (

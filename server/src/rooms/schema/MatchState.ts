@@ -9,6 +9,8 @@ export const PlayerState = schema(
     rotation: t.number().default(0),
     name: t.string().default(DEFAULT_PLAYER_NAME),
     connected: t.boolean().default(true),
+    team: t.number().default(0),
+    ready: t.boolean().default(false),
   },
   "PlayerState",
 );
@@ -18,6 +20,7 @@ export type PlayerState = SchemaType<typeof PlayerState>;
 export const MatchState = schema(
   {
     phase: t.string().default(MATCH_PHASES.WAITING),
+    countdown: t.number().default(0),
     players: t.map(PlayerState),
   },
   "MatchState",
