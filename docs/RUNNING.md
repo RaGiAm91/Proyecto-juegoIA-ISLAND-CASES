@@ -16,8 +16,10 @@ npm run dev
 
 1. Abrir http://localhost:5173 en dos pestañas o navegadores.
 2. Entrar con nombres distintos.
-3. Comprobar que ambos personajes aparecen y se mueven.
-4. Comprobar que la cámara sigue al jugador local y que el personaje remoto se interpola.
+3. Comprobar que aparecen en el mismo equipo del lobby.
+4. Pulsar «Listo» en ambos navegadores y comprobar la cuenta atrás de 3 segundos.
+5. Comprobar que ambos personajes aparecen y se mueven al pasar a `PLAYING`.
+6. Comprobar que la cámara sigue al jugador local y que el personaje remoto se interpola.
 
 La misma prueba está automatizada con Playwright:
 
@@ -26,7 +28,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright arranca ambos servicios, abre dos contextos aislados y comprueba la sincronización de movimiento.
+Playwright arranca ambos servicios, abre dos contextos aislados y comprueba el emparejamiento, la cuenta atrás y la sincronización de movimiento.
 
 ## LAN
 
