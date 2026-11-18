@@ -17,11 +17,21 @@ export const PlayerState = schema(
 
 export type PlayerState = SchemaType<typeof PlayerState>;
 
+export const TeamState = schema(
+  {
+    discoveredClues: t.array("string"),
+  },
+  "TeamState",
+);
+
+export type TeamState = SchemaType<typeof TeamState>;
+
 export const MatchState = schema(
   {
     phase: t.string().default(MATCH_PHASES.WAITING),
     countdown: t.number().default(0),
     players: t.map(PlayerState),
+    teams: t.map(TeamState),
   },
   "MatchState",
 );

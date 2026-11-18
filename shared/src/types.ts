@@ -20,6 +20,10 @@ export interface ReadyPayload {
   ready: boolean;
 }
 
+export interface InspectPayload {
+  clueId: string;
+}
+
 export interface PlayerView {
   x: number;
   y: number;
@@ -31,8 +35,13 @@ export interface PlayerView {
   ready: boolean;
 }
 
+export interface TeamView {
+  discoveredClues: readonly string[];
+}
+
 export interface MatchStateView {
   phase: MatchPhase;
   countdown: number;
   players: ReadonlyMap<string, PlayerView>;
+  teams: ReadonlyMap<string, TeamView>;
 }

@@ -20,6 +20,8 @@ npm run dev
 4. Pulsar «Listo» en ambos navegadores y comprobar la cuenta atrás de 3 segundos.
 5. Comprobar que ambos personajes aparecen y se mueven al pasar a `PLAYING`.
 6. Comprobar que la cámara sigue al jugador local y que el personaje remoto se interpola.
+7. Acercarse al libro de visitas junto a la entrada y comprobar que aparece el aviso `E`.
+8. Pulsar `E` y comprobar que la pista aparece en el expediente de ambos navegadores y que su marcador 3D desaparece.
 
 La misma prueba está automatizada con Playwright:
 
@@ -28,7 +30,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright arranca ambos servicios, abre dos contextos aislados y comprueba el emparejamiento, la cuenta atrás y la sincronización de movimiento.
+Playwright arranca ambos servicios, abre dos contextos aislados y comprueba el emparejamiento, la cuenta atrás, el registro de una pista y la sincronización de movimiento.
 
 ## LAN
 
