@@ -199,6 +199,88 @@
   color: #0b0b0d;
 }
 
+.dossier {
+  position: absolute;
+  top: 50%;
+  left: 28px;
+  width: min(320px, calc(100vw - 56px));
+  padding: 18px 16px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(168, 134, 63, 0.3);
+  background: rgba(11, 11, 13, 0.68);
+  backdrop-filter: blur(8px);
+}
+
+.dossierTitle {
+  margin: 10px 0 14px;
+  color: #f4ebdd;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+}
+
+.clueList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clueList li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(168, 134, 63, 0.14);
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.clueList li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.clueFound strong {
+  color: #a8863f;
+}
+
+.clueFound span {
+  color: #b7ab99;
+}
+
+.clueMissing strong {
+  color: #6f6559;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.interactionPrompt {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(168, 134, 63, 0.5);
+  background: rgba(11, 11, 13, 0.86);
+  color: #f4ebdd;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.interactionPrompt kbd {
+  padding: 3px 7px;
+  border: 1px solid #a8863f;
+  color: #a8863f;
+}
+
 .panel {
   position: absolute;
   top: 50%;
@@ -432,7 +514,8 @@
     left: 16px;
   }
 
-  .lobby {
+  .lobby,
+  .dossier {
     top: auto;
     bottom: 64px;
     left: 16px;

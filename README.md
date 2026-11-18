@@ -46,7 +46,7 @@ El workflow está en `.github/workflows/ci.yml`.
 
 ## Estado
 
-Esta fase solo cubre la base 3D y el multijugador. La investigación, los eventos, el terror, la muerte, el espectador, el chat y la puntuación se añadirán por fases.
+Esta fase cubre la base 3D, el multijugador, el lobby por parejas y el registro de pistas. Los eventos, el terror, la muerte, el espectador, el chat y la puntuación se añadirán por fases.
 
 ## Documentación
 

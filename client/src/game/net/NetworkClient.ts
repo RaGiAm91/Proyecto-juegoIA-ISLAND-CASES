@@ -1,5 +1,5 @@
 import { CLIENT_MESSAGES, DEFAULT_SERVER_PORT, ROOM_NAME } from "@island-cases/shared";
-import type { MatchStateView, PlayerInput, PlayerView } from "@island-cases/shared";
+import type { MatchStateView, PlayerInput, PlayerView, TeamView } from "@island-cases/shared";
 import { Callbacks, Client, CloseCode, type Room } from "@colyseus/sdk";
 
 export type ConnectionStatus =
@@ -15,15 +15,21 @@ export interface NetworkEvents {
 
 function snapshotState(state: MatchStateView): MatchStateView {
   const players = new Map<string, PlayerView>();
+  const teams = new Map<string, TeamView>();
 
   for (const [sessionId, player] of state.players) {
     players.set(sessionId, { ...player });
+  }
+
+  for (const [teamId, team] of state.teams) {
+    teams.set(teamId, { discoveredClues: [...team.discoveredClues] });
   }
 
   return {
     phase: state.phase,
     countdown: state.countdown,
     players,
+    teams,
   };
 }
 
@@ -51,7 +57,7 @@ export class NetworkClient {
   get state(): MatchStateView | null {
     const state = this.room?.state as Partial<MatchStateView> | undefined;
 
-    if (!state?.players) {
+    if (!state?.players || !state.teams) {
       return null;
     }
 
@@ -87,7 +93,7 @@ export class NetworkClient {
         const view = state as Partial<MatchStateView>;
         events.onPlayerCount(view.players?.size ?? 0);
 
-        if (view.players && view.phase && typeof view.countdown === "number") {
+        if (view.players && view.teams && view.phase && typeof view.countdown === "number") {
           events.onMatchState(snapshotState(view as MatchStateView));
         }
       });
@@ -134,6 +140,10 @@ export class NetworkClient {
 
   sendReady(ready: boolean): void {
     this.room?.send(CLIENT_MESSAGES.LOBBY_READY, { ready });
+  }
+
+  sendInspect(clueId: string): void {
+    this.room?.send(CLIENT_MESSAGES.CLUE_INSPECT, { clueId });
   }
 
   leave(): void {

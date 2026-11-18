@@ -1,5 +1,7 @@
 import {
   applyMovement,
+  CLUES,
+  findNearbyClue,
   INPUT_SEND_RATE,
   lerpAngle,
   LOCAL_CORRECTION_RATE,
@@ -11,11 +13,15 @@ import {
   ROOM_BOUNDS,
   smoothingFactor,
 } from "@island-cases/shared";
-import type { MatchStateView, PlayerView } from "@island-cases/shared";
+import type { ClueDefinition, MatchStateView, PlayerView } from "@island-cases/shared";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import "@babylonjs/core/Culling/ray";
 import { Engine } from "@babylonjs/core/Engines/engine";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import "@babylonjs/core/Meshes/Builders/sphereBuilder";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Scene } from "@babylonjs/core/scene";
 
 import { createCharacter, type CharacterView } from "../characters/CharacterView";
@@ -35,12 +41,15 @@ interface CharacterEntry {
 
 interface DebugSnapshot {
   local: { x: number; z: number } | null;
+  authoritative: { x: number; z: number } | null;
   remote: Array<{ sessionId: string; x: number; z: number }>;
 }
 
 type DebugWindow = Window & {
   __islandCasesDebug?: { getSnapshot: () => DebugSnapshot };
 };
+
+type InteractionHandler = (clue: ClueDefinition | null) => void;
 
 const PALETTE = ["#5A1F26", "#1F3A2E", "#3B2A20", "#A8863F", "#6B4F3A", "#2E4057"];
 
@@ -60,7 +69,12 @@ export class MatchScene {
   private readonly camera: ArcRotateCamera;
   private readonly input = new InputController();
   private readonly characters = new Map<string, CharacterEntry>();
+  private readonly clueMarkers: Array<{
+    id: string;
+    mesh: ReturnType<typeof MeshBuilder.CreateSphere>;
+  }> = [];
   private readonly onStats: (stats: SceneStats) => void;
+  private readonly onInteraction: InteractionHandler;
   private readonly resizeHandler = (): void => {
     this.engine.resize();
   };
@@ -71,7 +85,7 @@ export class MatchScene {
 
   private localSessionId: string | null = null;
   private localView: CharacterView | null = null;
-  private sendAccumulator = 0;
+  private inputTimer: ReturnType<typeof setInterval> | null = null;
   private statsAccumulator = 0;
   private disposed = false;
 
@@ -79,8 +93,10 @@ export class MatchScene {
     canvas: HTMLCanvasElement,
     private readonly network: NetworkClient,
     onStats: (stats: SceneStats) => void,
+    onInteraction: InteractionHandler,
   ) {
     this.onStats = onStats;
+    this.onInteraction = onInteraction;
     this.engine = new Engine(canvas, true, {
       antialias: true,
       stencil: true,
@@ -92,6 +108,21 @@ export class MatchScene {
     this.scene = new Scene(this.engine);
     this.scene.skipPointerMovePicking = true;
     buildTestRoom(this.scene);
+
+    const markerMaterial = new StandardMaterial("clue-marker-material", this.scene);
+    markerMaterial.emissiveColor = Color3.FromHexString("#A8863F");
+    markerMaterial.disableLighting = true;
+
+    for (const clue of CLUES) {
+      const marker = MeshBuilder.CreateSphere(
+        `clue-marker-${clue.id}`,
+        { diameter: 0.16, segments: 8 },
+        this.scene,
+      );
+      marker.position.set(clue.x, 1.1, clue.z);
+      marker.material = markerMaterial;
+      this.clueMarkers.push({ id: clue.id, mesh: marker });
+    }
 
     this.camera = new ArcRotateCamera(
       "third-person-camera",
@@ -119,6 +150,18 @@ export class MatchScene {
     }
 
     this.engine.runRenderLoop(() => this.render());
+
+    this.inputTimer = setInterval(() => {
+      if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+        return;
+      }
+
+      const axes = this.input.getAxes();
+      this.network.sendInput({
+        ...axes,
+        yaw: this.localView?.root.rotation.y ?? 0,
+      });
+    }, 1000 / INPUT_SEND_RATE);
   }
 
   addPlayer(sessionId: string, player: PlayerView, isLocal: boolean): void {
@@ -167,6 +210,12 @@ export class MatchScene {
 
     this.disposed = true;
     this.engine.stopRenderLoop();
+
+    if (this.inputTimer) {
+      clearInterval(this.inputTimer);
+      this.inputTimer = null;
+    }
+
     window.removeEventListener("resize", this.resizeHandler);
     this.input.dispose();
 
@@ -188,10 +237,11 @@ export class MatchScene {
       return;
     }
 
-    const dt = Math.min(this.engine.getDeltaTime() / 1000, 0.05);
+    const dt = Math.min(this.engine.getDeltaTime() / 1000, 0.25);
 
     this.updateLocal(dt);
     this.syncRemotePlayers(dt);
+    this.syncClueMarkers();
     this.scene.render();
 
     this.statsAccumulator += dt;
@@ -213,6 +263,8 @@ export class MatchScene {
     }
 
     if (this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+      this.input.consumeInteract();
+      this.onInteraction(null);
       this.camera.target.copyFrom(local.root.position);
       this.camera.target.y += 1.4;
       return;
@@ -263,15 +315,26 @@ export class MatchScene {
 
     this.camera.target.copyFrom(local.root.position);
     this.camera.target.y += 1.4;
-    this.sendAccumulator += dt;
 
-    if (this.sendAccumulator >= 1 / INPUT_SEND_RATE) {
-      this.sendAccumulator %= 1 / INPUT_SEND_RATE;
-      this.network.sendInput({
-        moveX: axes.moveX,
-        moveZ: axes.moveZ,
-        yaw: local.root.rotation.y,
-      });
+    const nearbyClue = findNearbyClue(local.root.position.x, local.root.position.z);
+    const shouldInteract = this.input.consumeInteract();
+    this.onInteraction(nearbyClue);
+
+    if (nearbyClue && shouldInteract) {
+      this.network.sendInspect(nearbyClue.id);
+    }
+  }
+
+  private syncClueMarkers(): void {
+    const state = this.network.state;
+    const localTeam = this.localSessionId
+      ? state?.players.get(this.localSessionId)?.team
+      : undefined;
+    const discovered =
+      localTeam === undefined ? [] : (state?.teams.get(String(localTeam))?.discoveredClues ?? []);
+
+    for (const marker of this.clueMarkers) {
+      marker.mesh.setEnabled(!discovered.includes(marker.id));
     }
   }
 
@@ -290,11 +353,21 @@ export class MatchScene {
       });
     }
 
+    const authoritative = this.localSessionId
+      ? this.network.state?.players.get(this.localSessionId)
+      : undefined;
+
     return {
       local: this.localView
         ? {
             x: this.localView.root.position.x,
             z: this.localView.root.position.z,
+          }
+        : null,
+      authoritative: authoritative
+        ? {
+            x: authoritative.x,
+            z: authoritative.z,
           }
         : null,
       remote,
