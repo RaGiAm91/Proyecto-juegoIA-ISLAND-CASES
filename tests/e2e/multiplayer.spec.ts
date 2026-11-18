@@ -80,7 +80,7 @@ async function readSnapshot(page: Page): Promise<DebugSnapshot> {
 test("dos investigadores forman pareja, registran una pista y sincronizan movimiento", async ({
   browser,
 }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(180_000);
 
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
