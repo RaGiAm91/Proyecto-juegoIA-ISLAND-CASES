@@ -133,6 +133,72 @@
   color: #f4ebdd;
 }
 
+.lobby {
+  position: absolute;
+  top: 50%;
+  left: 28px;
+  width: min(340px, calc(100vw - 56px));
+  padding: 20px 18px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(168, 134, 63, 0.4);
+  background: rgba(11, 11, 13, 0.78);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.lobbyPhase {
+  margin: 10px 0 0;
+  color: #f4ebdd;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+
+.teams {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.teamRow {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(168, 134, 63, 0.16);
+  color: #b7ab99;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.teamRow span:first-child {
+  color: #a8863f;
+}
+
+.readyButton {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #a8863f;
+  border-radius: 0;
+  background: rgba(90, 31, 38, 0.7);
+  color: #f4ebdd;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.readyButton:hover,
+.readyButton[aria-pressed="true"] {
+  background: #a8863f;
+  color: #0b0b0d;
+}
+
 .panel {
   position: absolute;
   top: 50%;
@@ -364,6 +430,14 @@
   .footer {
     right: 16px;
     left: 16px;
+  }
+
+  .lobby {
+    top: auto;
+    bottom: 64px;
+    left: 16px;
+    width: min(320px, calc(100vw - 32px));
+    transform: none;
   }
 
   .panel {

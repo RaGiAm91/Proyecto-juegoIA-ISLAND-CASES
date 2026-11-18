@@ -10,6 +10,7 @@ export interface NetworkEvents {
   onPlayerAdd: (sessionId: string, player: PlayerView) => void;
   onPlayerRemove: (sessionId: string) => void;
   onPlayerCount: (count: number) => void;
+  onMatchState: (state: MatchStateView) => void;
 }
 
 function resolveServerUrl(): string {
@@ -71,6 +72,10 @@ export class NetworkClient {
       room.onStateChange((state) => {
         const view = state as Partial<MatchStateView>;
         events.onPlayerCount(view.players?.size ?? 0);
+
+        if (view.players && view.phase && typeof view.countdown === "number") {
+          events.onMatchState(view as MatchStateView);
+        }
       });
 
       room.onDrop(() => {
@@ -92,6 +97,10 @@ export class NetworkClient {
 
       events.onStatus("connected");
       events.onPlayerCount(this.state?.players.size ?? 0);
+
+      if (this.state) {
+        events.onMatchState(this.state);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo conectar";
       events.onStatus("error", message);
@@ -107,6 +116,10 @@ export class NetworkClient {
 
     this.sequence += 1;
     this.room.send(CLIENT_MESSAGES.PLAYER_INPUT, { ...input, seq: this.sequence });
+  }
+
+  sendReady(ready: boolean): void {
+    this.room?.send(CLIENT_MESSAGES.LOBBY_READY, { ready });
   }
 
   leave(): void {
