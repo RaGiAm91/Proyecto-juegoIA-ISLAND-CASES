@@ -1,3 +1,4 @@
+import { MANSION_DOORWAYS, MANSION_WALLS } from "@island-cases/shared";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
@@ -43,6 +44,7 @@ export function buildTestRoom(scene: Scene): void {
 
   const floorMaterial = makePbr(scene, "floor-material", "#3B2A20", 0.88);
   const wallMaterial = makePbr(scene, "wall-material", "#1F3A2E", 0.92);
+  const partitionMaterial = makePbr(scene, "partition-material", "#2E2A24", 0.9);
   const trimMaterial = makePbr(scene, "trim-material", "#A8863F", 0.42);
   const darkWood = makePbr(scene, "dark-wood", "#241B17", 0.78);
   const rugMaterial = makePbr(scene, "rug-material", "#5A1F26", 0.95);
@@ -57,21 +59,45 @@ export function buildTestRoom(scene: Scene): void {
   ceiling.position.y = 6.55;
   ceiling.material = darkWood;
 
-  const wallSpecs = [
-    { name: "wall-back", x: 0, z: 10, width: 20, depth: 0.5 },
-    { name: "wall-front", x: 0, z: -10, width: 20, depth: 0.5 },
-    { name: "wall-left", x: -10, z: 0, width: 0.5, depth: 20 },
-    { name: "wall-right", x: 10, z: 0, width: 0.5, depth: 20 },
-  ];
+  for (const wall of MANSION_WALLS) {
+    const width = wall.maxX - wall.minX;
+    const depth = wall.maxZ - wall.minZ;
+    const mesh = MeshBuilder.CreateBox(`wall-${wall.id}`, { width, height: 6.4, depth }, scene);
+    mesh.position.set((wall.minX + wall.maxX) / 2, 3.2, (wall.minZ + wall.maxZ) / 2);
+    mesh.material = wall.kind === "exterior" ? wallMaterial : partitionMaterial;
+  }
 
-  for (const wallSpec of wallSpecs) {
-    const wall = MeshBuilder.CreateBox(
-      wallSpec.name,
-      { width: wallSpec.width, height: 6.4, depth: wallSpec.depth },
+  for (const doorway of MANSION_DOORWAYS) {
+    const lintelDepth = doorway.axis === "z" ? doorway.width : 0.55;
+    const lintelWidth = doorway.axis === "x" ? doorway.width : 0.55;
+    const lintel = MeshBuilder.CreateBox(
+      `door-lintel-${doorway.id}`,
+      { width: lintelWidth, height: 0.28, depth: lintelDepth },
       scene,
     );
-    wall.position.set(wallSpec.x, 3.2, wallSpec.z);
-    wall.material = wallMaterial;
+    lintel.position.set(doorway.x, 2.85, doorway.z);
+    lintel.material = trimMaterial;
+
+    const jambPositions =
+      doorway.axis === "z"
+        ? [
+            { x: doorway.x, z: doorway.z - doorway.width / 2 },
+            { x: doorway.x, z: doorway.z + doorway.width / 2 },
+          ]
+        : [
+            { x: doorway.x - doorway.width / 2, z: doorway.z },
+            { x: doorway.x + doorway.width / 2, z: doorway.z },
+          ];
+
+    for (const [index, jambPosition] of jambPositions.entries()) {
+      const jamb = MeshBuilder.CreateBox(
+        `door-jamb-${doorway.id}-${index}`,
+        { width: 0.55, height: 2.8, depth: 0.55 },
+        scene,
+      );
+      jamb.position.set(jambPosition.x, 1.4, jambPosition.z);
+      jamb.material = trimMaterial;
+    }
   }
 
   const baseboardBack = MeshBuilder.CreateBox(
