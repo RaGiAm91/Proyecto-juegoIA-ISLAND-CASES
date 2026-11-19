@@ -13,7 +13,12 @@ import {
   ROOM_BOUNDS,
   smoothingFactor,
 } from "@island-cases/shared";
-import type { ClueDefinition, MatchStateView, PlayerView } from "@island-cases/shared";
+import type {
+  ClueDefinition,
+  MatchStateView,
+  MovementAxes,
+  PlayerView,
+} from "@island-cases/shared";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import "@babylonjs/core/Culling/ray";
 import { Engine } from "@babylonjs/core/Engines/engine";
@@ -53,7 +58,10 @@ interface DebugSnapshot {
 }
 
 type DebugWindow = Window & {
-  __islandCasesDebug?: { getSnapshot: () => DebugSnapshot };
+  __islandCasesDebug?: {
+    getSnapshot: () => DebugSnapshot;
+    moveFor: (axes: MovementAxes, durationMs: number) => Promise<void>;
+  };
 };
 
 type InteractionHandler = (clue: ClueDefinition | null) => void;
@@ -79,7 +87,7 @@ export class MatchScene {
   private readonly engine: Engine;
   private readonly scene: Scene;
   private readonly camera: ArcRotateCamera;
-  private readonly input = new InputController();
+  private readonly input = new InputController(() => this.sendCurrentInput());
   private readonly characters = new Map<string, CharacterEntry>();
   private readonly clueMarkers: Array<{
     id: string;
@@ -93,6 +101,8 @@ export class MatchScene {
 
   private readonly debugApi = {
     getSnapshot: (): DebugSnapshot => this.getDebugSnapshot(),
+    moveFor: (axes: MovementAxes, durationMs: number): Promise<void> =>
+      this.moveFor(axes, durationMs),
   };
 
   private localSessionId: string | null = null;
@@ -163,25 +173,38 @@ export class MatchScene {
 
     this.engine.runRenderLoop(() => this.render());
 
-    this.inputTimer = setInterval(() => {
-      if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
-        return;
-      }
+    this.inputTimer = setInterval(() => this.sendCurrentInput(), 1000 / INPUT_SEND_RATE);
+  }
 
-      const localState = this.localSessionId
-        ? this.network.state?.players.get(this.localSessionId)
-        : undefined;
+  private sendCurrentInput(): void {
+    if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+      return;
+    }
 
-      if (localState && !localState.alive) {
-        return;
-      }
+    const localState = this.localSessionId
+      ? this.network.state?.players.get(this.localSessionId)
+      : undefined;
 
-      const axes = this.input.getAxes();
-      this.network.sendInput({
-        ...axes,
-        yaw: this.localView?.root.rotation.y ?? 0,
-      });
-    }, 1000 / INPUT_SEND_RATE);
+    if (localState && !localState.alive) {
+      return;
+    }
+
+    const axes = this.input.getAxes();
+    this.network.sendInput({
+      ...axes,
+      yaw: this.localView?.root.rotation.y ?? 0,
+    });
+  }
+
+  private async moveFor(axes: MovementAxes, durationMs: number): Promise<void> {
+    if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+      return;
+    }
+
+    const yaw = this.localView?.root.rotation.y ?? 0;
+    this.network.sendInput({ ...axes, yaw });
+    await new Promise((resolve) => setTimeout(resolve, durationMs));
+    this.network.sendInput({ moveX: 0, moveZ: 0, yaw });
   }
 
   addPlayer(sessionId: string, player: PlayerView, isLocal: boolean): void {
