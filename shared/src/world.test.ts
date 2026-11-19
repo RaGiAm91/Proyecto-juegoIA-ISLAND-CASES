@@ -9,6 +9,13 @@ if (!table) {
   throw new Error("La mesa debe estar definida en el layout de la mansión.");
 }
 
+describe("MANSION_OBSTACLES", () => {
+  it("incluye los tabiques interiores como obstáculos", () => {
+    expect(MANSION_OBSTACLES.some((obstacle) => obstacle.id === "west-partition-mid")).toBe(true);
+    expect(MANSION_OBSTACLES.some((obstacle) => obstacle.id === "east-partition-mid")).toBe(true);
+  });
+});
+
 describe("resolveCollisions", () => {
   it("expulsa al jugador por el lado más cercano cuando queda dentro de un obstáculo", () => {
     const player = { x: 0, z: 0 };

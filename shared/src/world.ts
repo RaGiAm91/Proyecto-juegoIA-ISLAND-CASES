@@ -1,4 +1,5 @@
 import { PLAYER_RADIUS } from "./constants.js";
+import { MANSION_WALLS } from "./mansion.js";
 import type { MutablePosition } from "./math.js";
 
 export interface Obstacle {
@@ -16,6 +17,13 @@ export const MANSION_OBSTACLES: readonly Obstacle[] = [
   { id: "chair-sw", minX: -1.6, maxX: -0.8, minZ: -2.3, maxZ: -1.5 },
   { id: "chair-se", minX: 0.8, maxX: 1.6, minZ: -2.3, maxZ: -1.5 },
   { id: "fireplace", minX: -8.5, maxX: -4.3, minZ: 8.25, maxZ: 9.9 },
+  ...MANSION_WALLS.map((wall) => ({
+    id: wall.id,
+    minX: wall.minX,
+    maxX: wall.maxX,
+    minZ: wall.minZ,
+    maxZ: wall.maxZ,
+  })),
 ];
 
 export function resolveCollisions(position: MutablePosition, obstacles: readonly Obstacle[]): void {

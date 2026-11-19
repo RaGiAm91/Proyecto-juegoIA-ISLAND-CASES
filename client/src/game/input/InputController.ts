@@ -1,5 +1,7 @@
 import type { MovementAxes } from "@island-cases/shared";
 
+type InputChangeHandler = () => void;
+
 export class InputController {
   private readonly keys = new Set<string>();
   private interactRequested = false;
@@ -14,18 +16,22 @@ export class InputController {
     if (event.code === "KeyE" && !event.repeat) {
       this.interactRequested = true;
     }
+
+    this.onChange?.();
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
     this.keys.delete(event.code);
+    this.onChange?.();
   };
 
   private readonly onBlur = (): void => {
     this.keys.clear();
     this.interactRequested = false;
+    this.onChange?.();
   };
 
-  constructor() {
+  constructor(private readonly onChange?: InputChangeHandler) {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("blur", this.onBlur);

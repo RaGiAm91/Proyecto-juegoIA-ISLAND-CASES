@@ -70,6 +70,16 @@ async function moveTowards(page: Page, target: { x: number; z: number }): Promis
     await page.keyboard.up(key);
     await page.waitForTimeout(200);
   }
+
+  await expect
+    .poll(
+      async () => {
+        const point = (await readSnapshot(page)).authoritative;
+        return point ? distanceTo(point, target) : Number.POSITIVE_INFINITY;
+      },
+      { timeout: 5_000 },
+    )
+    .toBeLessThan(1);
 }
 
 async function readSnapshot(page: Page): Promise<DebugSnapshot> {

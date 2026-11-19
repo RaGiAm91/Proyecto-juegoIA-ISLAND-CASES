@@ -79,7 +79,7 @@ export class MatchScene {
   private readonly engine: Engine;
   private readonly scene: Scene;
   private readonly camera: ArcRotateCamera;
-  private readonly input = new InputController();
+  private readonly input = new InputController(() => this.sendCurrentInput());
   private readonly characters = new Map<string, CharacterEntry>();
   private readonly clueMarkers: Array<{
     id: string;
@@ -163,25 +163,27 @@ export class MatchScene {
 
     this.engine.runRenderLoop(() => this.render());
 
-    this.inputTimer = setInterval(() => {
-      if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
-        return;
-      }
+    this.inputTimer = setInterval(() => this.sendCurrentInput(), 1000 / INPUT_SEND_RATE);
+  }
 
-      const localState = this.localSessionId
-        ? this.network.state?.players.get(this.localSessionId)
-        : undefined;
+  private sendCurrentInput(): void {
+    if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+      return;
+    }
 
-      if (localState && !localState.alive) {
-        return;
-      }
+    const localState = this.localSessionId
+      ? this.network.state?.players.get(this.localSessionId)
+      : undefined;
 
-      const axes = this.input.getAxes();
-      this.network.sendInput({
-        ...axes,
-        yaw: this.localView?.root.rotation.y ?? 0,
-      });
-    }, 1000 / INPUT_SEND_RATE);
+    if (localState && !localState.alive) {
+      return;
+    }
+
+    const axes = this.input.getAxes();
+    this.network.sendInput({
+      ...axes,
+      yaw: this.localView?.root.rotation.y ?? 0,
+    });
   }
 
   addPlayer(sessionId: string, player: PlayerView, isLocal: boolean): void {
