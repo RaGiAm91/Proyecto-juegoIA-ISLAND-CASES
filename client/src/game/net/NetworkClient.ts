@@ -30,6 +30,7 @@ function snapshotState(state: MatchStateView): MatchStateView {
     countdown: state.countdown,
     players,
     teams,
+    eventLog: [...state.eventLog],
   };
 }
 
@@ -57,7 +58,7 @@ export class NetworkClient {
   get state(): MatchStateView | null {
     const state = this.room?.state as Partial<MatchStateView> | undefined;
 
-    if (!state?.players || !state.teams) {
+    if (!state?.players || !state.teams || !state.eventLog) {
       return null;
     }
 
@@ -93,7 +94,13 @@ export class NetworkClient {
         const view = state as Partial<MatchStateView>;
         events.onPlayerCount(view.players?.size ?? 0);
 
-        if (view.players && view.teams && view.phase && typeof view.countdown === "number") {
+        if (
+          view.players &&
+          view.teams &&
+          view.eventLog &&
+          view.phase &&
+          typeof view.countdown === "number"
+        ) {
           events.onMatchState(snapshotState(view as MatchStateView));
         }
       });

@@ -2,10 +2,12 @@ import {
   applyMovement,
   assignTeam,
   canStartMatch,
+  chooseSpectatorTarget,
   CLIENT_MESSAGES,
   CLUE_BY_ID,
   COUNTDOWN_SECONDS,
   DEFAULT_PLAYER_NAME,
+  GAME_EVENT_BY_CLUE,
   inspectSchema,
   isClueInRange,
   joinOptionsSchema,
@@ -39,6 +41,12 @@ export class MatchRoom extends Room {
     [CLIENT_MESSAGES.PLAYER_INPUT]: validate(
       playerInputSchema,
       (client: Client, input: PlayerInput) => {
+        const player = this.state.players.get(client.sessionId);
+
+        if (this.state.phase !== MATCH_PHASES.PLAYING || !player?.connected || !player.alive) {
+          return;
+        }
+
         const previousSequence = this.lastSequences.get(client.sessionId) ?? -1;
 
         if (input.seq <= previousSequence) {
@@ -72,7 +80,13 @@ export class MatchRoom extends Room {
         const player = this.state.players.get(client.sessionId);
         const clue = CLUE_BY_ID.get(payload.clueId);
 
-        if (!player || !player.connected || !clue || !isClueInRange(clue, player.x, player.z)) {
+        if (
+          !player ||
+          !player.connected ||
+          !player.alive ||
+          !clue ||
+          !isClueInRange(clue, player.x, player.z)
+        ) {
           return;
         }
 
@@ -81,6 +95,8 @@ export class MatchRoom extends Room {
         if (team && !team.discoveredClues.includes(payload.clueId)) {
           team.discoveredClues.push(payload.clueId);
         }
+
+        this.triggerClueEvent(player, payload.clueId);
       },
     ),
   };
@@ -105,6 +121,7 @@ export class MatchRoom extends Room {
     this.ensureTeam(player.team);
     this.lastInputs.set(client.sessionId, { seq: 0, moveX: 0, moveZ: 0, yaw: 0 });
     this.updateLobby();
+    this.updateSpectators();
   }
 
   override onDrop(client: Client, _code: CloseCode): void {
@@ -116,6 +133,7 @@ export class MatchRoom extends Room {
 
     this.allowReconnection(client, 30);
     this.updateLobby();
+    this.updateSpectators();
   }
 
   override onReconnect(client: Client): void {
@@ -126,6 +144,7 @@ export class MatchRoom extends Room {
     }
 
     this.updateLobby();
+    this.updateSpectators();
   }
 
   override onLeave(client: Client, _code: CloseCode): void {
@@ -152,16 +171,25 @@ export class MatchRoom extends Room {
     let index = 0;
 
     this.state.teams.clear();
+    this.state.eventLog.clear();
+    this.lastInputs.clear();
+    this.lastSequences.clear();
 
-    for (const player of this.state.players.values()) {
+    for (const [sessionId, player] of this.state.players) {
       player.team = assignTeam(index);
       player.ready = false;
+      player.alive = true;
+      player.spectating = false;
+      player.spectatorTarget = "";
+      player.deathCause = "";
       this.ensureTeam(player.team);
+      this.lastInputs.set(sessionId, { seq: 0, moveX: 0, moveZ: 0, yaw: 0 });
       index += 1;
     }
 
     this.state.phase = MATCH_PHASES.WAITING;
     this.state.countdown = 0;
+    this.updateSpectators();
   }
 
   private updateLobby(): void {
@@ -184,6 +212,35 @@ export class MatchRoom extends Room {
     }
   }
 
+  private updateSpectators(): void {
+    for (const [sessionId, player] of this.state.players) {
+      if (player.alive) {
+        player.spectating = false;
+        player.spectatorTarget = "";
+        continue;
+      }
+
+      player.spectating = true;
+      player.spectatorTarget = chooseSpectatorTarget(this.state.players, sessionId);
+    }
+  }
+
+  private triggerClueEvent(player: PlayerState, clueId: string): void {
+    const event = GAME_EVENT_BY_CLUE.get(clueId);
+
+    if (!event || [...this.state.eventLog].includes(event.id)) {
+      return;
+    }
+
+    this.state.eventLog.push(event.id);
+
+    if (event.fatal && player.alive) {
+      player.alive = false;
+      player.deathCause = event.id;
+      this.updateSpectators();
+    }
+  }
+
   private step(dt: number): void {
     if (this.state.phase === MATCH_PHASES.COUNTDOWN) {
       this.state.countdown = Math.max(0, this.state.countdown - dt);
@@ -200,7 +257,7 @@ export class MatchRoom extends Room {
     }
 
     for (const [sessionId, player] of this.state.players) {
-      if (!player.connected) {
+      if (!player.connected || !player.alive) {
         continue;
       }
 

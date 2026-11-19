@@ -281,6 +281,78 @@
   color: #a8863f;
 }
 
+.eventLog {
+  position: absolute;
+  bottom: 84px;
+  left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: min(320px, calc(100vw - 56px));
+  padding: 13px 15px;
+  border: 1px solid rgba(168, 134, 63, 0.32);
+  background: rgba(11, 11, 13, 0.78);
+  backdrop-filter: blur(8px);
+}
+
+.eventLog strong {
+  color: #f4ebdd;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.eventLog span {
+  color: #b7ab99;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.deathOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(90, 31, 38, 0.18), transparent 48%);
+}
+
+.deathCard {
+  width: min(390px, 100%);
+  padding: 28px 26px;
+  border: 1px solid rgba(185, 92, 80, 0.55);
+  background: rgba(11, 11, 13, 0.88);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+
+.deathTitle {
+  margin: 10px 0 12px;
+  color: #e38a7d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.deathDetail {
+  margin: 0;
+  color: #b7ab99;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.deathSpectator {
+  margin: 18px 0 0;
+  color: #a8863f;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
 .panel {
   position: absolute;
   top: 50%;
@@ -521,6 +593,13 @@
     left: 16px;
     width: min(320px, calc(100vw - 32px));
     transform: none;
+  }
+
+  .eventLog {
+    bottom: auto;
+    top: 86px;
+    left: 16px;
+    width: min(320px, calc(100vw - 32px));
   }
 
   .panel {
