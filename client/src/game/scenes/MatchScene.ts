@@ -40,9 +40,16 @@ interface CharacterEntry {
 }
 
 interface DebugSnapshot {
-  local: { x: number; z: number } | null;
+  local: {
+    x: number;
+    z: number;
+    alive: boolean;
+    spectating: boolean;
+    spectatorTarget: string;
+  } | null;
   authoritative: { x: number; z: number } | null;
-  remote: Array<{ sessionId: string; x: number; z: number }>;
+  remote: Array<{ sessionId: string; x: number; z: number; alive: boolean }>;
+  cameraTarget: { x: number; z: number } | null;
 }
 
 type DebugWindow = Window & {
@@ -61,6 +68,11 @@ function colorFor(sessionId: string): string {
   }
 
   return PALETTE[Math.abs(hash) % PALETTE.length] ?? "#A8863F";
+}
+
+function applyAlivePose(view: CharacterView, alive: boolean): void {
+  view.root.scaling.y = alive ? 1 : 0.35;
+  view.root.rotation.z = alive ? 0 : -Math.PI / 2;
 }
 
 export class MatchScene {
@@ -153,6 +165,14 @@ export class MatchScene {
 
     this.inputTimer = setInterval(() => {
       if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+        return;
+      }
+
+      const localState = this.localSessionId
+        ? this.network.state?.players.get(this.localSessionId)
+        : undefined;
+
+      if (localState && !localState.alive) {
         return;
       }
 
@@ -262,6 +282,20 @@ export class MatchScene {
       return;
     }
 
+    const authoritative = this.localSessionId
+      ? this.network.state?.players.get(this.localSessionId)
+      : undefined;
+    const isDead = authoritative?.alive === false;
+
+    applyAlivePose(local, !isDead);
+
+    if (isDead) {
+      this.input.consumeInteract();
+      this.onInteraction(null);
+      this.followSpectatorTarget(dt);
+      return;
+    }
+
     if (this.network.state?.phase !== MATCH_PHASES.PLAYING) {
       this.input.consumeInteract();
       this.onInteraction(null);
@@ -296,10 +330,6 @@ export class MatchScene {
       );
     }
 
-    const authoritative = this.localSessionId
-      ? this.network.state?.players.get(this.localSessionId)
-      : undefined;
-
     if (authoritative) {
       const errorX = authoritative.x - local.root.position.x;
       const errorZ = authoritative.z - local.root.position.z;
@@ -326,6 +356,40 @@ export class MatchScene {
     }
   }
 
+  private followSpectatorTarget(dt: number): void {
+    const state = this.network.state;
+    const localState = this.localSessionId ? state?.players.get(this.localSessionId) : undefined;
+    const targetId = localState?.spectatorTarget;
+    const targetPlayer = targetId ? state?.players.get(targetId) : undefined;
+    const targetView = targetId ? this.characters.get(targetId) : undefined;
+
+    let destination: Vector3 | null = null;
+
+    if (targetPlayer) {
+      destination = new Vector3(targetPlayer.x, 1.4, targetPlayer.z);
+    } else if (targetView) {
+      destination = new Vector3(
+        targetView.view.root.position.x,
+        1.4,
+        targetView.view.root.position.z,
+      );
+    } else if (this.localView) {
+      destination = new Vector3(
+        this.localView.root.position.x,
+        1.4,
+        this.localView.root.position.z,
+      );
+    }
+
+    if (!destination) {
+      return;
+    }
+
+    this.camera.target.copyFrom(
+      Vector3.Lerp(this.camera.target, destination, smoothingFactor(REMOTE_INTERPOLATION_RATE, dt)),
+    );
+  }
+
   private syncClueMarkers(): void {
     const state = this.network.state;
     const localTeam = this.localSessionId
@@ -341,6 +405,7 @@ export class MatchScene {
 
   private getDebugSnapshot(): DebugSnapshot {
     const remote: DebugSnapshot["remote"] = [];
+    const state = this.network.state;
 
     for (const [sessionId, entry] of this.characters) {
       if (entry.isLocal) {
@@ -351,18 +416,20 @@ export class MatchScene {
         sessionId,
         x: entry.view.root.position.x,
         z: entry.view.root.position.z,
+        alive: state?.players.get(sessionId)?.alive ?? true,
       });
     }
 
-    const authoritative = this.localSessionId
-      ? this.network.state?.players.get(this.localSessionId)
-      : undefined;
+    const authoritative = this.localSessionId ? state?.players.get(this.localSessionId) : undefined;
 
     return {
       local: this.localView
         ? {
             x: this.localView.root.position.x,
             z: this.localView.root.position.z,
+            alive: authoritative?.alive ?? true,
+            spectating: authoritative?.spectating ?? false,
+            spectatorTarget: authoritative?.spectatorTarget ?? "",
           }
         : null,
       authoritative: authoritative
@@ -372,6 +439,10 @@ export class MatchScene {
           }
         : null,
       remote,
+      cameraTarget: {
+        x: this.camera.target.x,
+        z: this.camera.target.z,
+      },
     };
   }
 
@@ -394,6 +465,8 @@ export class MatchScene {
       if (!player) {
         continue;
       }
+
+      applyAlivePose(entry.view, player.alive);
 
       const target = new Vector3(player.x, 0, player.z);
       entry.view.root.position.copyFrom(Vector3.Lerp(entry.view.root.position, target, smoothing));

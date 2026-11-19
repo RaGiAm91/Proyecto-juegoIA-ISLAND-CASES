@@ -33,6 +33,10 @@ export interface PlayerView {
   connected: boolean;
   team: number;
   ready: boolean;
+  alive: boolean;
+  spectating: boolean;
+  spectatorTarget: string;
+  deathCause: string;
 }
 
 export interface TeamView {
@@ -44,4 +48,5 @@ export interface MatchStateView {
   countdown: number;
   players: ReadonlyMap<string, PlayerView>;
   teams: ReadonlyMap<string, TeamView>;
+  eventLog: readonly string[];
 }
