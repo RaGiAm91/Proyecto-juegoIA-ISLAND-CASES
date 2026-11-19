@@ -11,6 +11,10 @@ export const PlayerState = schema(
     connected: t.boolean().default(true),
     team: t.number().default(0),
     ready: t.boolean().default(false),
+    alive: t.boolean().default(true),
+    spectating: t.boolean().default(false),
+    spectatorTarget: t.string().default(""),
+    deathCause: t.string().default(""),
   },
   "PlayerState",
 );
@@ -32,6 +36,7 @@ export const MatchState = schema(
     countdown: t.number().default(0),
     players: t.map(PlayerState),
     teams: t.map(TeamState),
+    eventLog: t.array("string"),
   },
   "MatchState",
 );

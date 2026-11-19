@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CLUES,
   DEFAULT_PLAYER_NAME,
+  GAME_EVENT_BY_ID,
   MATCH_PHASES,
   MAX_PLAYER_NAME_LENGTH,
   MAX_PLAYERS,
@@ -109,7 +110,8 @@ export default function App(): React.JSX.Element {
 
   const phase = matchState?.phase ?? MATCH_PHASES.WAITING;
   const countdown = matchState?.countdown ?? 0;
-  const localReady = matchState?.players.get(networkRef.current?.sessionId ?? "")?.ready ?? false;
+  const localPlayer = matchState?.players.get(networkRef.current?.sessionId ?? "");
+  const localReady = localPlayer?.ready ?? false;
   const teams = Array.from({ length: MAX_TEAMS }, (_, index) => ({
     index,
     members: [...(matchState?.players.values() ?? [])].filter((player) => player.team === index),
@@ -120,6 +122,11 @@ export default function App(): React.JSX.Element {
     (localTeam === undefined
       ? undefined
       : matchState?.teams.get(String(localTeam))?.discoveredClues) ?? [];
+  const lastEventId = matchState?.eventLog.at(-1);
+  const lastEvent = lastEventId ? GAME_EVENT_BY_ID.get(lastEventId) : undefined;
+  const spectatorTargetName = localPlayer?.spectatorTarget
+    ? (matchState?.players.get(localPlayer.spectatorTarget)?.name ?? "")
+    : "";
 
   return (
     <main className={styles.app}>
@@ -204,10 +211,45 @@ export default function App(): React.JSX.Element {
             </section>
           )}
 
-          {phase === MATCH_PHASES.PLAYING && nearbyClue && (
+          {phase === MATCH_PHASES.PLAYING && lastEvent && (
+            <section
+              className={styles.eventLog}
+              data-testid="event-log"
+              data-event={lastEvent.id}
+              aria-live="polite"
+            >
+              <p className={styles.panelEyebrow}>EVENTO REGISTRADO</p>
+              <strong>{lastEvent.title}</strong>
+              <span>{lastEvent.detail}</span>
+            </section>
+          )}
+
+          {phase === MATCH_PHASES.PLAYING && nearbyClue && localPlayer?.alive !== false && (
             <div className={styles.interactionPrompt} data-testid="clue-prompt">
               <kbd>E</kbd>
               <span>Registrar pista: {nearbyClue.title}</span>
+            </div>
+          )}
+
+          {phase === MATCH_PHASES.PLAYING && localPlayer && !localPlayer.alive && (
+            <div className={styles.deathOverlay} data-testid="death-overlay">
+              <div
+                className={styles.deathCard}
+                data-testid="spectator-banner"
+                data-alive={localPlayer.alive}
+                data-target={localPlayer.spectatorTarget}
+              >
+                <p className={styles.panelEyebrow}>INVESTIGADOR CAÍDO</p>
+                <h2 className={styles.deathTitle}>HAS MUERTO</h2>
+                <p className={styles.deathDetail}>
+                  {lastEvent?.detail ?? "La mansión se ha cerrado para ti."}
+                </p>
+                <p className={styles.deathSpectator}>
+                  {spectatorTargetName
+                    ? `ESPECTANDO A ${spectatorTargetName}`
+                    : "SIN OBJETIVO VISIBLE"}
+                </p>
+              </div>
             </div>
           )}
 

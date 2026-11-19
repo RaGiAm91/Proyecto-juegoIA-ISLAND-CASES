@@ -22,6 +22,10 @@ npm run dev
 6. Comprobar que la cámara sigue al jugador local y que el personaje remoto se interpola.
 7. Acercarse al libro de visitas junto a la entrada y comprobar que aparece el aviso `E`.
 8. Pulsar `E` y comprobar que la pista aparece en el expediente de ambos navegadores y que su marcador 3D desaparece.
+9. Comprobar que el evento «Firma sangrienta» aparece en el HUD de ambos navegadores.
+10. Comprobar que el investigador que registró el libro de visitas muere, ve «HAS MUERTO» y no puede volver a moverse ni registrar pistas.
+11. Comprobar que la cámara del investigador muerto sigue a su compañero y que el nombre del objetivo aparece en la superposición.
+12. Comprobar que el compañero sigue jugando y conserva la pista registrada en su expediente.
 
 La misma prueba está automatizada con Playwright:
 
@@ -30,7 +34,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright arranca ambos servicios, abre dos contextos aislados y comprueba el emparejamiento, la cuenta atrás, el registro de una pista y la sincronización de movimiento.
+Playwright arranca ambos servicios, abre dos contextos aislados y comprueba el emparejamiento, la cuenta atrás, el registro de una pista, el evento mortal, la sincronización de movimiento, la ausencia de respawn y la cámara de espectador.
 
 ## LAN
 

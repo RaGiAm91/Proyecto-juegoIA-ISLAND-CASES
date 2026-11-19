@@ -5,7 +5,7 @@
 ```text
 client/   Vite + React + Babylon + Colyseus SDK
 server/   Express + Colyseus + reglas autoritativas
-shared/   protocolo, tipos, constantes, validación, matemáticas, colisiones, lobby y pistas
+shared/   protocolo, tipos, constantes, validación, matemáticas, colisiones, lobby, pistas, eventos y espectador
 ```
 
 `shared` se compila a `dist` y se consume como workspace. `client` y `server` no se importan entre sí.
@@ -17,6 +17,8 @@ shared/   protocolo, tipos, constantes, validación, matemáticas, colisiones, l
 - `messages.ts`: nombres y payloads tipados de mensajes cliente-servidor.
 - `validation.ts`: esquemas Zod para entradas, nombres e inspección.
 - `clues.ts`: definiciones de pistas, búsqueda por proximidad y comprobación de rango.
+- `events.ts`: definiciones de eventos, búsqueda por pista disparadora y evento mortal.
+- `spectator.ts`: selección pura del objetivo de espectador.
 - `lobby.ts`: asignación de parejas y condición pura para iniciar la partida.
 - `math.ts`: movimiento planar, normalización, límites, interpolación angular y suavizado.
 - `world.ts`: obstáculos AABB de la mansión y resolución de colisiones circle-vs-AABB.
@@ -29,6 +31,7 @@ shared/   protocolo, tipos, constantes, validación, matemáticas, colisiones, l
 mensaje lobby:ready -> MatchRoom -> fase WAITING/COUNTDOWN/PLAYING
 input del cliente -> mensaje player:input -> MatchRoom
 E cerca de una pista -> mensaje clue:inspect -> MatchRoom
+MatchRoom -> evento asociado y posible muerte -> estado autoritativo
 MatchRoom -> estado autoritativo -> delta patches -> clientes
 cliente -> predicción local + corrección -> personaje local
 cliente -> interpolación -> personajes remotos
@@ -36,7 +39,7 @@ cliente -> interpolación -> personajes remotos
 
 - Tick fijo del servidor: 20 Hz.
 - Input del cliente: 30 Hz.
-- Estado sincronizado mínimo: posición, rotación, nombre, conexión, equipo, listo, cuenta atrás y pistas por equipo.
+- Estado sincronizado mínimo: posición, rotación, nombre, conexión, equipo, listo, vida, modo espectador, objetivo de espectador, causa de muerte, cuenta atrás, pistas por equipo y registro de eventos.
 - El servidor valida y normaliza el movimiento; nunca confía en posiciones enviadas por el cliente.
 - El cliente predice su movimiento con la misma función pura y corrige si el error supera 0,75 m.
 
@@ -80,7 +83,17 @@ cliente -> interpolación -> personajes remotos
 - El progreso se guarda por equipo en `TeamState.discoveredClues` y se sincroniza en `MatchState.teams`.
 - El HUD muestra el expediente con las pistas registradas; los marcadores 3D desaparecen al registrarlas.
 
+## Eventos, muerte y espectador
+
+- `shared/events.ts` define los eventos disparados por la primera inspección de cada pista; `firma-sangrienta` es el evento mortal asociado al libro de visitas.
+- El servidor valida `clue:inspect`, registra la pista por equipo y añade el evento al registro solo una vez por partida.
+- Un evento mortal fija `alive = false`, guarda la causa y activa `spectating`; no hay respawn.
+- `chooseSpectatorTarget` prefiere un compañero de equipo vivo y conectado, y cae a cualquier jugador vivo y conectado.
+- El servidor ignora input e inspecciones de jugadores muertos y recalcula espectadores al entrar, salir, desconectarse, reconectarse o reiniciar el lobby.
+- El cliente congela al personaje muerto, desactiva su prompt de interacción y mueve la cámara hacia el objetivo de espectador.
+- El HUD muestra el último evento, una superposición de muerte y el nombre del jugador observado.
+
 ## Siguientes cortes verticales
 
-1. Eventos, muerte y espectador.
-2. Puntuación, resultados y administración.
+1. Puntuación, resultados y administración.
+2. Terror ambiental y chat.

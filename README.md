@@ -28,11 +28,12 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-El test arranca servidor y cliente, abre dos contextos aislados, comprueba que ambos jugadores aparecen y verifica que el movimiento de uno se sincroniza en el otro.
+El test arranca servidor y cliente, abre dos contextos aislados, comprueba el emparejamiento, la cuenta atrás, el registro de una pista, el evento mortal, la sincronización de movimiento y la cámara de espectador.
 
 ## Controles
 
 - `WASD`: mover.
+- `E`: registrar una pista cercana.
 - Ratón: orbitar la cámara.
 - Rueda: zoom.
 
@@ -46,7 +47,7 @@ El workflow está en `.github/workflows/ci.yml`.
 
 ## Estado
 
-Esta fase cubre la base 3D, el multijugador, el lobby por parejas y el registro de pistas. Los eventos, el terror, la muerte, el espectador, el chat y la puntuación se añadirán por fases.
+Esta fase cubre la base 3D, el multijugador, el lobby por parejas, el registro de pistas, los eventos asociados, la muerte sin respawn y el espectador. El terror ambiental, el chat y la puntuación se añadirán por fases.
 
 ## Documentación
 
