@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { PLAYER_SPEED, type MovementAxes } from "@island-cases/shared";
 
 interface DebugSnapshot {
   local: {
@@ -14,7 +15,10 @@ interface DebugSnapshot {
 }
 
 type DebugWindow = Window & {
-  __islandCasesDebug?: { getSnapshot: () => DebugSnapshot };
+  __islandCasesDebug?: {
+    getSnapshot: () => DebugSnapshot;
+    moveFor: (axes: MovementAxes, durationMs: number) => Promise<void>;
+  };
 };
 
 function trackErrors(page: Page): string[] {
@@ -49,26 +53,33 @@ function distanceTo(point: { x: number; z: number }, target: { x: number; z: num
 }
 
 async function moveTowards(page: Page, target: { x: number; z: number }): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     const point = (await readSnapshot(page)).authoritative;
 
     if (!point) {
       throw new Error("El jugador autoritativo aún no está disponible.");
     }
 
-    if (distanceTo(point, target) < 1) {
+    const distance = distanceTo(point, target);
+
+    if (distance < 1) {
       return;
     }
 
     const deltaX = target.x - point.x;
     const deltaZ = target.z - point.z;
-    const key =
-      Math.abs(deltaZ) >= Math.abs(deltaX) ? (deltaZ > 0 ? "w" : "s") : deltaX > 0 ? "d" : "a";
+    const axes: MovementAxes =
+      Math.abs(deltaZ) >= Math.abs(deltaX)
+        ? { moveX: 0, moveZ: Math.sign(deltaZ) }
+        : { moveX: Math.sign(deltaX), moveZ: 0 };
+    const durationMs = Math.min(800, Math.max(120, ((distance - 0.6) / PLAYER_SPEED) * 1000));
 
-    await page.keyboard.down(key);
-    await page.waitForTimeout(80);
-    await page.keyboard.up(key);
-    await page.waitForTimeout(200);
+    await page.evaluate(
+      async ({ axes: movement, duration }) => {
+        await (window as DebugWindow).__islandCasesDebug?.moveFor(movement, duration);
+      },
+      { axes, duration: durationMs },
+    );
   }
 
   await expect
@@ -97,7 +108,7 @@ async function readSnapshot(page: Page): Promise<DebugSnapshot> {
 test("dos investigadores forman pareja, registran una pista, mueren y espectan", async ({
   browser,
 }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
 
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();

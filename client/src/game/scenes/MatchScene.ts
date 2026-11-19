@@ -13,7 +13,12 @@ import {
   ROOM_BOUNDS,
   smoothingFactor,
 } from "@island-cases/shared";
-import type { ClueDefinition, MatchStateView, PlayerView } from "@island-cases/shared";
+import type {
+  ClueDefinition,
+  MatchStateView,
+  MovementAxes,
+  PlayerView,
+} from "@island-cases/shared";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import "@babylonjs/core/Culling/ray";
 import { Engine } from "@babylonjs/core/Engines/engine";
@@ -53,7 +58,10 @@ interface DebugSnapshot {
 }
 
 type DebugWindow = Window & {
-  __islandCasesDebug?: { getSnapshot: () => DebugSnapshot };
+  __islandCasesDebug?: {
+    getSnapshot: () => DebugSnapshot;
+    moveFor: (axes: MovementAxes, durationMs: number) => Promise<void>;
+  };
 };
 
 type InteractionHandler = (clue: ClueDefinition | null) => void;
@@ -93,6 +101,8 @@ export class MatchScene {
 
   private readonly debugApi = {
     getSnapshot: (): DebugSnapshot => this.getDebugSnapshot(),
+    moveFor: (axes: MovementAxes, durationMs: number): Promise<void> =>
+      this.moveFor(axes, durationMs),
   };
 
   private localSessionId: string | null = null;
@@ -184,6 +194,17 @@ export class MatchScene {
       ...axes,
       yaw: this.localView?.root.rotation.y ?? 0,
     });
+  }
+
+  private async moveFor(axes: MovementAxes, durationMs: number): Promise<void> {
+    if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+      return;
+    }
+
+    const yaw = this.localView?.root.rotation.y ?? 0;
+    this.network.sendInput({ ...axes, yaw });
+    await new Promise((resolve) => setTimeout(resolve, durationMs));
+    this.network.sendInput({ moveX: 0, moveZ: 0, yaw });
   }
 
   addPlayer(sessionId: string, player: PlayerView, isLocal: boolean): void {
