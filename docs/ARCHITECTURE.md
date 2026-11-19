@@ -61,6 +61,8 @@ cliente -> interpolación -> personajes remotos
 - Personajes placeholder con cuerpo, cabeza, sombrero, sombra y placa de nombre.
 - La cámara sigue al jugador local; los remotos se interpolan.
 - La mesa, las sillas y la chimenea tienen obstáculos AABB en `shared/world.ts` que coinciden con el blockout.
+- El vestíbulo es la primera zona detallada: alfombra, espejo, consola, perchero y atril del libro de visitas.
+- Los muebles del vestíbulo se definen en `shared/props.ts` y se renderizan desde esos mismos datos.
 - Cada pista tiene un marcador emisivo en 3D que desaparece cuando el equipo la registra.
 
 ## Colisiones

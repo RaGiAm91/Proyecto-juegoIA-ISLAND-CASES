@@ -1,4 +1,4 @@
-import { MANSION_DOORWAYS, MANSION_WALLS } from "@island-cases/shared";
+import { ENTRANCE_HALL_PROPS, MANSION_DOORWAYS, MANSION_WALLS } from "@island-cases/shared";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
@@ -115,6 +115,87 @@ export function buildTestRoom(scene: Scene): void {
   );
   baseboardLeft.position.set(-9.68, 0.35, 0);
   baseboardLeft.material = trimMaterial;
+
+  const entranceRunner = MeshBuilder.CreateGround(
+    "entrance-runner",
+    { width: 2.6, height: 5.4 },
+    scene,
+  );
+  entranceRunner.position.set(-6.9, 0.025, -5.9);
+  entranceRunner.material = rugMaterial;
+
+  const entranceMirror = MeshBuilder.CreateBox(
+    "entrance-mirror",
+    { width: 0.08, height: 2.4, depth: 1.4 },
+    scene,
+  );
+  entranceMirror.position.set(-9.66, 2.1, -6.2);
+  entranceMirror.material = stoneMaterial;
+
+  for (const prop of ENTRANCE_HALL_PROPS) {
+    const width = prop.maxX - prop.minX;
+    const depth = prop.maxZ - prop.minZ;
+    const x = (prop.minX + prop.maxX) / 2;
+    const z = (prop.minZ + prop.maxZ) / 2;
+
+    if (prop.kind === "coat-rack") {
+      const pole = MeshBuilder.CreateCylinder(
+        `prop-${prop.id}-pole`,
+        { height: prop.height, diameter: 0.08, tessellation: 10 },
+        scene,
+      );
+      pole.position.set(x, prop.height / 2, z);
+      pole.material = trimMaterial;
+
+      const base = MeshBuilder.CreateCylinder(
+        `prop-${prop.id}-base`,
+        { height: 0.08, diameter: width, tessellation: 12 },
+        scene,
+      );
+      base.position.set(x, 0.04, z);
+      base.material = darkWood;
+
+      for (let index = 0; index < 3; index += 1) {
+        const hook = MeshBuilder.CreateSphere(
+          `prop-${prop.id}-hook-${index}`,
+          { diameter: 0.12, segments: 8 },
+          scene,
+        );
+        hook.position.set(x + (index - 1) * 0.16, prop.height - 0.25, z);
+        hook.material = trimMaterial;
+      }
+
+      continue;
+    }
+
+    const body = MeshBuilder.CreateBox(
+      `prop-${prop.id}-body`,
+      { width, height: prop.height, depth },
+      scene,
+    );
+    body.position.set(x, prop.height / 2, z);
+    body.material = darkWood;
+
+    if (prop.kind === "console") {
+      const drawer = MeshBuilder.CreateBox(
+        `prop-${prop.id}-drawer`,
+        { width: width * 0.8, height: 0.12, depth: depth * 0.8 },
+        scene,
+      );
+      drawer.position.set(x, prop.height * 0.68, z);
+      drawer.material = trimMaterial;
+      continue;
+    }
+
+    const top = MeshBuilder.CreateBox(
+      `prop-${prop.id}-top`,
+      { width: width * 1.1, height: 0.1, depth: depth * 0.9 },
+      scene,
+    );
+    top.position.set(x, prop.height + 0.05, z - depth * 0.08);
+    top.rotation.x = -0.25;
+    top.material = trimMaterial;
+  }
 
   const rug = MeshBuilder.CreateGround("rug", { width: 8, height: 5 }, scene);
   rug.position.y = 0.02;

@@ -3,6 +3,7 @@ export * from "./events.js";
 export * from "./lobby.js";
 export * from "./mansion.js";
 export * from "./math.js";
+export * from "./props.js";
 export * from "./protocol.js";
 export * from "./spectator.js";
 export * from "./validation.js";
