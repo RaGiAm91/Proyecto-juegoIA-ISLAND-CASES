@@ -1,10 +1,18 @@
-import { ENTRANCE_HALL_PROPS, MANSION_DOORWAYS, MANSION_WALLS } from "@island-cases/shared";
+import {
+  ENTRANCE_HALL_PROPS,
+  HUB_DOOR_SIGNS,
+  HUB_INTERACTABLES,
+  MANSION_DOORWAYS,
+  MANSION_WALLS,
+} from "@island-cases/shared";
+import type { HubDoorSign, HubInteractable } from "@island-cases/shared";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
@@ -12,6 +20,7 @@ import { Scene } from "@babylonjs/core/scene";
 import "@babylonjs/core/Meshes/Builders/boxBuilder";
 import "@babylonjs/core/Meshes/Builders/cylinderBuilder";
 import "@babylonjs/core/Meshes/Builders/groundBuilder";
+import "@babylonjs/core/Meshes/Builders/planeBuilder";
 import "@babylonjs/core/Meshes/Builders/sphereBuilder";
 
 function makePbr(scene: Scene, name: string, color: string, roughness = 0.8): PBRMaterial {
@@ -28,6 +37,80 @@ function makeEmissive(scene: Scene, name: string, color: string): StandardMateri
   material.emissiveColor = Color3.FromHexString(color);
   material.disableLighting = true;
   return material;
+}
+
+function createDoorSign(scene: Scene, sign: HubDoorSign): void {
+  const texture = new DynamicTexture(`${sign.id}-texture`, { width: 512, height: 128 }, scene);
+  const context = texture.getContext() as CanvasRenderingContext2D;
+
+  context.fillStyle = "#0B0B0D";
+  context.fillRect(0, 0, 512, 128);
+  context.strokeStyle = "#A8863F";
+  context.lineWidth = 6;
+  context.strokeRect(4, 4, 504, 120);
+  context.fillStyle = "#F4EBDD";
+  context.font = "bold 46px Georgia";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(sign.label, 256, 68);
+  texture.update();
+
+  const material = new StandardMaterial(`${sign.id}-material`, scene);
+  material.emissiveTexture = texture;
+  material.disableLighting = true;
+  material.backFaceCulling = false;
+
+  const plane = MeshBuilder.CreatePlane(sign.id, { width: 2.2, height: 0.55 }, scene);
+  plane.position.set(sign.x, 2.45, sign.z);
+  plane.rotation.y = sign.rotationY;
+  plane.material = material;
+}
+
+function createHubBoard(scene: Scene, interactable: HubInteractable): void {
+  const texture = new DynamicTexture(
+    `${interactable.id}-texture`,
+    { width: 512, height: 384 },
+    scene,
+  );
+  const context = texture.getContext() as CanvasRenderingContext2D;
+
+  context.fillStyle = "#17130F";
+  context.fillRect(0, 0, 512, 384);
+  context.strokeStyle = "#A8863F";
+  context.lineWidth = 8;
+  context.strokeRect(6, 6, 500, 372);
+  context.fillStyle = "#F4EBDD";
+  context.font = "bold 40px Georgia";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(interactable.title.toUpperCase(), 256, 88);
+  context.fillStyle = "#7FD1B9";
+  context.font = "bold 26px Courier New";
+  context.fillText(
+    interactable.kind === "directory" ? "PLANTA BAJA · SALIDAS" : "CAMPO 1954 · PISTAS",
+    256,
+    158,
+  );
+  context.strokeStyle = "rgba(168, 134, 63, 0.5)";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(48, 204);
+  context.lineTo(464, 204);
+  context.stroke();
+  context.fillStyle = "#B7AB99";
+  context.font = "24px Courier New";
+  context.fillText("PULSA E PARA CONSULTAR", 256, 262);
+  texture.update();
+
+  const material = new StandardMaterial(`${interactable.id}-material`, scene);
+  material.emissiveTexture = texture;
+  material.disableLighting = true;
+  material.backFaceCulling = false;
+
+  const plane = MeshBuilder.CreatePlane(interactable.id, { width: 1.7, height: 1.25 }, scene);
+  plane.position.set(interactable.kind === "directory" ? -9.67 : -4.22, 2.05, interactable.z);
+  plane.rotation.y = interactable.kind === "directory" ? Math.PI / 2 : -Math.PI / 2;
+  plane.material = material;
 }
 
 export function buildTestRoom(scene: Scene): void {
@@ -115,6 +198,94 @@ export function buildTestRoom(scene: Scene): void {
   );
   baseboardLeft.position.set(-9.68, 0.35, 0);
   baseboardLeft.material = trimMaterial;
+
+  const frontDoorFrame = MeshBuilder.CreateBox(
+    "front-door-frame",
+    { width: 3.6, height: 3.7, depth: 0.18 },
+    scene,
+  );
+  frontDoorFrame.position.set(-7, 1.85, -9.64);
+  frontDoorFrame.material = trimMaterial;
+
+  const frontDoorLeft = MeshBuilder.CreateBox(
+    "front-door-left",
+    { width: 1.55, height: 3.2, depth: 0.14 },
+    scene,
+  );
+  frontDoorLeft.position.set(-7.8, 1.6, -9.5);
+  frontDoorLeft.material = darkWood;
+
+  const frontDoorRight = MeshBuilder.CreateBox(
+    "front-door-right",
+    { width: 1.55, height: 3.2, depth: 0.14 },
+    scene,
+  );
+  frontDoorRight.position.set(-6.2, 1.6, -9.5);
+  frontDoorRight.material = darkWood;
+
+  const frontDoorTransom = MeshBuilder.CreateBox(
+    "front-door-transom",
+    { width: 3.1, height: 0.38, depth: 0.12 },
+    scene,
+  );
+  frontDoorTransom.position.set(-7, 3.35, -9.5);
+  frontDoorTransom.material = windowMaterial;
+
+  const frontDoorKnocker = MeshBuilder.CreateSphere(
+    "front-door-knocker",
+    { diameter: 0.18, segments: 10 },
+    scene,
+  );
+  frontDoorKnocker.position.set(-6.45, 1.65, -9.38);
+  frontDoorKnocker.material = trimMaterial;
+
+  const entranceMedallion = MeshBuilder.CreateCylinder(
+    "entrance-medallion",
+    { height: 0.02, diameter: 1.8, tessellation: 32 },
+    scene,
+  );
+  entranceMedallion.position.set(-8.2, 0.03, -8.6);
+  entranceMedallion.material = stoneMaterial;
+
+  const entranceMedallionCore = MeshBuilder.CreateCylinder(
+    "entrance-medallion-core",
+    { height: 0.03, diameter: 1.1, tessellation: 32 },
+    scene,
+  );
+  entranceMedallionCore.position.set(-8.2, 0.05, -8.6);
+  entranceMedallionCore.material = trimMaterial;
+
+  const runnerBorder = MeshBuilder.CreateGround(
+    "entrance-runner-border",
+    { width: 2.9, height: 5.7 },
+    scene,
+  );
+  runnerBorder.position.set(-6.9, 0.022, -5.9);
+  runnerBorder.material = trimMaterial;
+
+  for (const sign of HUB_DOOR_SIGNS) {
+    createDoorSign(scene, sign);
+  }
+
+  for (const interactable of HUB_INTERACTABLES) {
+    createHubBoard(scene, interactable);
+  }
+
+  const eastGuide = MeshBuilder.CreateGround(
+    "entrance-guide-east",
+    { width: 2.2, height: 0.1 },
+    scene,
+  );
+  eastGuide.position.set(-5.2, 0.03, -6);
+  eastGuide.material = makeEmissive(scene, "entrance-guide-east-material", "#3E6B5E");
+
+  const northGuide = MeshBuilder.CreateGround(
+    "entrance-guide-north",
+    { width: 0.1, height: 2.2 },
+    scene,
+  );
+  northGuide.position.set(-6, 0.03, -1.8);
+  northGuide.material = makeEmissive(scene, "entrance-guide-north-material", "#3E6B5E");
 
   const entranceRunner = MeshBuilder.CreateGround(
     "entrance-runner",
@@ -368,6 +539,51 @@ export function buildTestRoom(scene: Scene): void {
     bulb.material = candleMaterial;
   }
 
+  const entranceChain = MeshBuilder.CreateCylinder(
+    "entrance-chandelier-chain",
+    { height: 1.2, diameter: 0.04, tessellation: 8 },
+    scene,
+  );
+  entranceChain.position.set(-7, 5.75, -5.5);
+  entranceChain.material = trimMaterial;
+
+  const entranceChandelier = MeshBuilder.CreateCylinder(
+    "entrance-chandelier",
+    { height: 0.14, diameter: 1.3, tessellation: 20 },
+    scene,
+  );
+  entranceChandelier.position.set(-7, 5.05, -5.5);
+  entranceChandelier.material = trimMaterial;
+
+  for (let index = 0; index < 6; index += 1) {
+    const angle = (index / 6) * Math.PI * 2;
+    const bulb = MeshBuilder.CreateSphere(
+      `entrance-chandelier-bulb-${index}`,
+      { diameter: 0.16, segments: 8 },
+      scene,
+    );
+    bulb.position.set(-7 + Math.cos(angle) * 0.55, 4.95, -5.5 + Math.sin(angle) * 0.55);
+    bulb.material = candleMaterial;
+  }
+
+  for (const z of [-2.4, -5.8, -8.2]) {
+    const sconce = MeshBuilder.CreateBox(
+      `entrance-sconce-${z}`,
+      { width: 0.12, height: 0.42, depth: 0.28 },
+      scene,
+    );
+    sconce.position.set(-9.66, 2.6, z);
+    sconce.material = trimMaterial;
+
+    const glow = MeshBuilder.CreateSphere(
+      `entrance-sconce-glow-${z}`,
+      { diameter: 0.14, segments: 8 },
+      scene,
+    );
+    glow.position.set(-9.52, 2.6, z);
+    glow.material = candleMaterial;
+  }
+
   const ambient = new HemisphericLight("ambient", new Vector3(0, 1, 0), scene);
   ambient.intensity = 0.38;
   ambient.diffuse = Color3.FromHexString("#C9D4E0");
@@ -392,4 +608,14 @@ export function buildTestRoom(scene: Scene): void {
   fireLight.intensity = 10;
   fireLight.range = 8;
   fireLight.diffuse = Color3.FromHexString("#FF7A3D");
+
+  const entranceLight = new PointLight("entrance-light", new Vector3(-7, 4.6, -5.5), scene);
+  entranceLight.intensity = 9;
+  entranceLight.range = 9;
+  entranceLight.diffuse = Color3.FromHexString("#FFB35C");
+
+  const boardLight = new PointLight("entrance-board-light", new Vector3(-9.2, 2.6, -4.7), scene);
+  boardLight.intensity = 3;
+  boardLight.range = 4;
+  boardLight.diffuse = Color3.FromHexString("#7FD1B9");
 }

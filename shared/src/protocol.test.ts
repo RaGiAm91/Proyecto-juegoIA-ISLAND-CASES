@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { MAX_PLAYER_NAME_LENGTH } from "./constants.js";
-import { joinOptionsSchema, playerNameSchema, playerInputSchema } from "./validation.js";
+import {
+  debugSetPositionSchema,
+  hubInteractSchema,
+  joinOptionsSchema,
+  playerNameSchema,
+  playerInputSchema,
+} from "./validation.js";
 
 describe("player input contract", () => {
   it("accepts a valid input frame", () => {
@@ -61,5 +67,27 @@ describe("join options", () => {
 
   it("rejects missing names", () => {
     expect(joinOptionsSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("hub interaction contract", () => {
+  it("accepts a shared interactable id", () => {
+    const result = hubInteractSchema.safeParse({ interactableId: "entrance-directory" });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty interactable ids", () => {
+    expect(hubInteractSchema.safeParse({ interactableId: "" }).success).toBe(false);
+  });
+});
+
+describe("debug position contract", () => {
+  it("accepts a position inside room bounds", () => {
+    expect(debugSetPositionSchema.safeParse({ x: -6, z: -2.2 }).success).toBe(true);
+  });
+
+  it("rejects positions outside room bounds", () => {
+    expect(debugSetPositionSchema.safeParse({ x: 20, z: 0 }).success).toBe(false);
   });
 });

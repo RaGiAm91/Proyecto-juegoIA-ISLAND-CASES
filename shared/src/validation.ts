@@ -1,7 +1,14 @@
 import { z } from "zod";
 
-import { MAX_PLAYER_NAME_LENGTH, MIN_PLAYER_NAME_LENGTH } from "./constants.js";
-import type { InspectPayload, JoinOptions, PlayerInput, ReadyPayload } from "./types.js";
+import { MAX_PLAYER_NAME_LENGTH, MIN_PLAYER_NAME_LENGTH, ROOM_BOUNDS } from "./constants.js";
+import type {
+  DebugSetPositionPayload,
+  HubInteractPayload,
+  InspectPayload,
+  JoinOptions,
+  PlayerInput,
+  ReadyPayload,
+} from "./types.js";
 
 export const playerInputSchema: z.ZodType<PlayerInput> = z.object({
   seq: z.number().int().nonnegative(),
@@ -25,6 +32,15 @@ export const inspectSchema: z.ZodType<InspectPayload> = z.object({
   clueId: z.string().min(1).max(64),
 });
 
+export const hubInteractSchema: z.ZodType<HubInteractPayload> = z.object({
+  interactableId: z.string().min(1).max(64),
+});
+
 export const joinOptionsSchema: z.ZodType<JoinOptions> = z.object({
   name: playerNameSchema,
+});
+
+export const debugSetPositionSchema: z.ZodType<DebugSetPositionPayload> = z.object({
+  x: z.number().finite().min(-ROOM_BOUNDS).max(ROOM_BOUNDS),
+  z: z.number().finite().min(-ROOM_BOUNDS).max(ROOM_BOUNDS),
 });
