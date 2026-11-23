@@ -1,7 +1,13 @@
 import { z } from "zod";
 
 import { MAX_PLAYER_NAME_LENGTH, MIN_PLAYER_NAME_LENGTH } from "./constants.js";
-import type { InspectPayload, JoinOptions, PlayerInput, ReadyPayload } from "./types.js";
+import type {
+  HubInteractPayload,
+  InspectPayload,
+  JoinOptions,
+  PlayerInput,
+  ReadyPayload,
+} from "./types.js";
 
 export const playerInputSchema: z.ZodType<PlayerInput> = z.object({
   seq: z.number().int().nonnegative(),
@@ -23,6 +29,10 @@ export const readySchema: z.ZodType<ReadyPayload> = z.object({
 
 export const inspectSchema: z.ZodType<InspectPayload> = z.object({
   clueId: z.string().min(1).max(64),
+});
+
+export const hubInteractSchema: z.ZodType<HubInteractPayload> = z.object({
+  interactableId: z.string().min(1).max(64),
 });
 
 export const joinOptionsSchema: z.ZodType<JoinOptions> = z.object({

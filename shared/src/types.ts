@@ -24,6 +24,10 @@ export interface InspectPayload {
   clueId: string;
 }
 
+export interface HubInteractPayload {
+  interactableId: string;
+}
+
 export interface PlayerView {
   x: number;
   y: number;

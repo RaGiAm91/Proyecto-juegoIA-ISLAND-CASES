@@ -2,6 +2,8 @@ import {
   applyMovement,
   CLUES,
   findNearbyClue,
+  findNearbyHubInteractable,
+  HUB_INTERACTABLES,
   INPUT_SEND_RATE,
   lerpAngle,
   LOCAL_CORRECTION_RATE,
@@ -15,6 +17,7 @@ import {
 } from "@island-cases/shared";
 import type {
   ClueDefinition,
+  HubInteractable,
   MatchStateView,
   MovementAxes,
   PlayerView,
@@ -29,7 +32,11 @@ import "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Scene } from "@babylonjs/core/scene";
 
-import { createCharacter, type CharacterView } from "../characters/CharacterView";
+import {
+  createCharacter,
+  createTestCharacter,
+  type CharacterView,
+} from "../characters/CharacterView";
 import { InputController } from "../input/InputController";
 import type { NetworkClient } from "../net/NetworkClient";
 import { buildTestRoom } from "../world/buildTestRoom";
@@ -55,16 +62,25 @@ interface DebugSnapshot {
   authoritative: { x: number; z: number } | null;
   remote: Array<{ sessionId: string; x: number; z: number; alive: boolean }>;
   cameraTarget: { x: number; z: number } | null;
+  cameraAlpha: number;
+  cameraBeta: number;
+  testCharacter: { x: number; z: number } | null;
 }
 
 type DebugWindow = Window & {
   __islandCasesDebug?: {
     getSnapshot: () => DebugSnapshot;
     moveFor: (axes: MovementAxes, durationMs: number) => Promise<void>;
+    setTestCharacter: (x: number, z: number) => void;
+    setCameraAlpha: (alpha: number) => void;
   };
 };
 
-type InteractionHandler = (clue: ClueDefinition | null) => void;
+export type InteractionFocus =
+  { kind: "clue"; clue: ClueDefinition } | { kind: "hub"; interactable: HubInteractable };
+
+type InteractionHandler = (focus: InteractionFocus | null) => void;
+type HubCloseHandler = () => void;
 
 const PALETTE = ["#5A1F26", "#1F3A2E", "#3B2A20", "#A8863F", "#6B4F3A", "#2E4057"];
 
@@ -93,20 +109,53 @@ export class MatchScene {
     id: string;
     mesh: ReturnType<typeof MeshBuilder.CreateSphere>;
   }> = [];
+  private readonly hubMarkers: Array<{
+    id: string;
+    mesh: ReturnType<typeof MeshBuilder.CreateSphere>;
+  }> = [];
   private readonly onStats: (stats: SceneStats) => void;
   private readonly onInteraction: InteractionHandler;
+  private readonly onHubClose: HubCloseHandler;
   private readonly resizeHandler = (): void => {
     this.engine.resize();
+  };
+  private readonly canvas: HTMLCanvasElement;
+  private lastPointer: { x: number; y: number } | null = null;
+  private readonly pointerMoveHandler = (event: PointerEvent): void => {
+    if (this.disposed || event.buttons !== 0) {
+      this.lastPointer = null;
+      return;
+    }
+
+    if (this.lastPointer) {
+      const deltaX = event.clientX - this.lastPointer.x;
+      const deltaY = event.clientY - this.lastPointer.y;
+      this.camera.inertialAlphaOffset -= deltaX * 0.002;
+      this.camera.inertialBetaOffset -= deltaY * 0.002;
+    }
+
+    this.lastPointer = { x: event.clientX, y: event.clientY };
+  };
+  private readonly pointerLeaveHandler = (): void => {
+    this.lastPointer = null;
   };
 
   private readonly debugApi = {
     getSnapshot: (): DebugSnapshot => this.getDebugSnapshot(),
     moveFor: (axes: MovementAxes, durationMs: number): Promise<void> =>
       this.moveFor(axes, durationMs),
+    setTestCharacter: (x: number, z: number): void => this.moveTestCharacter(x, z),
+    setCameraAlpha: (alpha: number): void => {
+      this.camera.alpha = alpha;
+      this.camera.inertialAlphaOffset = 0;
+    },
   };
 
+  private readonly testCharacter: CharacterView | null;
   private localSessionId: string | null = null;
   private localView: CharacterView | null = null;
+  private interactionBlocked = false;
+  private testCharacterElapsed = 0;
   private inputTimer: ReturnType<typeof setInterval> | null = null;
   private statsAccumulator = 0;
   private disposed = false;
@@ -116,9 +165,12 @@ export class MatchScene {
     private readonly network: NetworkClient,
     onStats: (stats: SceneStats) => void,
     onInteraction: InteractionHandler,
+    onHubClose: HubCloseHandler,
   ) {
     this.onStats = onStats;
     this.onInteraction = onInteraction;
+    this.onHubClose = onHubClose;
+    this.canvas = canvas;
     this.engine = new Engine(canvas, true, {
       antialias: true,
       stencil: true,
@@ -130,6 +182,9 @@ export class MatchScene {
     this.scene = new Scene(this.engine);
     this.scene.skipPointerMovePicking = true;
     buildTestRoom(this.scene);
+
+    this.testCharacter = import.meta.env.DEV ? createTestCharacter(this.scene) : null;
+    this.testCharacter?.root.position.set(-7.4, 0, -6.2);
 
     const markerMaterial = new StandardMaterial("clue-marker-material", this.scene);
     markerMaterial.emissiveColor = Color3.FromHexString("#A8863F");
@@ -146,6 +201,21 @@ export class MatchScene {
       this.clueMarkers.push({ id: clue.id, mesh: marker });
     }
 
+    const hubMarkerMaterial = new StandardMaterial("hub-marker-material", this.scene);
+    hubMarkerMaterial.emissiveColor = Color3.FromHexString("#7FD1B9");
+    hubMarkerMaterial.disableLighting = true;
+
+    for (const interactable of HUB_INTERACTABLES) {
+      const marker = MeshBuilder.CreateSphere(
+        `hub-marker-${interactable.id}`,
+        { diameter: 0.2, segments: 8 },
+        this.scene,
+      );
+      marker.position.set(interactable.x, 1.35, interactable.z);
+      marker.material = hubMarkerMaterial;
+      this.hubMarkers.push({ id: interactable.id, mesh: marker });
+    }
+
     this.camera = new ArcRotateCamera(
       "third-person-camera",
       -Math.PI / 2,
@@ -155,6 +225,8 @@ export class MatchScene {
       this.scene,
     );
     this.camera.attachControl(canvas, true);
+    canvas.addEventListener("pointermove", this.pointerMoveHandler);
+    canvas.addEventListener("pointerleave", this.pointerLeaveHandler);
     this.camera.lowerRadiusLimit = 3.5;
     this.camera.upperRadiusLimit = 7.5;
     this.camera.lowerBetaLimit = 0.6;
@@ -189,15 +261,49 @@ export class MatchScene {
       return;
     }
 
+    const yaw = this.localView?.root.rotation.y ?? 0;
+
+    if (this.interactionBlocked) {
+      this.network.sendInput({ moveX: 0, moveZ: 0, yaw });
+      return;
+    }
+
+    const axes = this.getWorldAxes();
+    this.network.sendInput({ ...axes, yaw });
+  }
+
+  private getWorldAxes(): MovementAxes {
     const axes = this.input.getAxes();
-    this.network.sendInput({
-      ...axes,
-      yaw: this.localView?.root.rotation.y ?? 0,
-    });
+
+    if (axes.moveX === 0 && axes.moveZ === 0) {
+      return axes;
+    }
+
+    const forward = this.camera.getForwardRay().direction;
+    forward.y = 0;
+
+    if (forward.lengthSquared() < 0.0001) {
+      forward.set(0, 0, 1);
+    } else {
+      forward.normalize();
+    }
+
+    const right = Vector3.Cross(Vector3.Up(), forward).normalize();
+    const desired = forward.scale(axes.moveZ).addInPlace(right.scale(axes.moveX));
+
+    if (desired.lengthSquared() > 0.0001) {
+      desired.normalize();
+    }
+
+    return { moveX: desired.x, moveZ: desired.z };
   }
 
   private async moveFor(axes: MovementAxes, durationMs: number): Promise<void> {
-    if (this.disposed || this.network.state?.phase !== MATCH_PHASES.PLAYING) {
+    if (
+      this.disposed ||
+      this.interactionBlocked ||
+      this.network.state?.phase !== MATCH_PHASES.PLAYING
+    ) {
       return;
     }
 
@@ -246,6 +352,19 @@ export class MatchScene {
     }
   }
 
+  setInteractionBlocked(blocked: boolean): void {
+    this.interactionBlocked = blocked;
+
+    if (blocked) {
+      this.input.consumeInteract();
+      this.onInteraction(null);
+    }
+  }
+
+  private moveTestCharacter(x: number, z: number): void {
+    this.testCharacter?.root.position.set(x, 0, z);
+  }
+
   dispose(): void {
     if (this.disposed) {
       return;
@@ -260,6 +379,8 @@ export class MatchScene {
     }
 
     window.removeEventListener("resize", this.resizeHandler);
+    this.canvas.removeEventListener("pointermove", this.pointerMoveHandler);
+    this.canvas.removeEventListener("pointerleave", this.pointerLeaveHandler);
     this.input.dispose();
 
     if ((window as DebugWindow).__islandCasesDebug === this.debugApi) {
@@ -282,6 +403,11 @@ export class MatchScene {
 
     const dt = Math.min(this.engine.getDeltaTime() / 1000, 0.25);
 
+    if (this.testCharacter) {
+      this.testCharacterElapsed += dt;
+      this.testCharacter.root.position.y = Math.sin(this.testCharacterElapsed * 2) * 0.025;
+    }
+
     this.updateLocal(dt);
     this.syncRemotePlayers(dt);
     this.syncClueMarkers();
@@ -302,6 +428,18 @@ export class MatchScene {
     const local = this.localView;
 
     if (!local) {
+      return;
+    }
+
+    if (this.interactionBlocked) {
+      this.input.consumeInteract();
+
+      if (this.input.consumeCancel()) {
+        this.onHubClose();
+      }
+
+      this.camera.target.copyFrom(local.root.position);
+      this.camera.target.y += 1.4;
       return;
     }
 
@@ -327,30 +465,11 @@ export class MatchScene {
       return;
     }
 
-    const axes = this.input.getAxes();
-    const forward = this.camera.getForwardRay().direction;
-    forward.y = 0;
+    const axes = this.getWorldAxes();
 
-    if (forward.lengthSquared() < 0.0001) {
-      forward.set(0, 0, 1);
-    } else {
-      forward.normalize();
-    }
-
-    const right = Vector3.Cross(Vector3.Up(), forward).normalize();
-    const desired = forward.scale(axes.moveZ).addInPlace(right.scale(axes.moveX));
-
-    if (desired.lengthSquared() > 0.0001) {
-      desired.normalize();
-      local.root.rotation.y = Math.atan2(desired.x, desired.z);
-      applyMovement(
-        local.root.position,
-        { moveX: desired.x, moveZ: desired.z },
-        PLAYER_SPEED,
-        dt,
-        ROOM_BOUNDS,
-        MANSION_OBSTACLES,
-      );
+    if (axes.moveX !== 0 || axes.moveZ !== 0) {
+      local.root.rotation.y = Math.atan2(axes.moveX, axes.moveZ);
+      applyMovement(local.root.position, axes, PLAYER_SPEED, dt, ROOM_BOUNDS, MANSION_OBSTACLES);
     }
 
     if (authoritative) {
@@ -369,12 +488,26 @@ export class MatchScene {
     this.camera.target.copyFrom(local.root.position);
     this.camera.target.y += 1.4;
 
-    const promptPosition = authoritative ?? local.root.position;
-    const nearbyClue = findNearbyClue(promptPosition.x, promptPosition.z);
-    const shouldInteract = this.input.consumeInteract();
-    this.onInteraction(nearbyClue);
+    this.input.consumeCancel();
 
-    if (nearbyClue && shouldInteract) {
+    const promptPosition = authoritative ?? local.root.position;
+    const nearbyHub = findNearbyHubInteractable(promptPosition.x, promptPosition.z);
+    const nearbyClue = nearbyHub ? null : findNearbyClue(promptPosition.x, promptPosition.z);
+    const focus: InteractionFocus | null = nearbyHub
+      ? { kind: "hub", interactable: nearbyHub }
+      : nearbyClue
+        ? { kind: "clue", clue: nearbyClue }
+        : null;
+    const shouldInteract = this.input.consumeInteract();
+    this.onInteraction(focus);
+
+    if (!shouldInteract) {
+      return;
+    }
+
+    if (nearbyHub) {
+      this.network.sendHubInteract(nearbyHub.id);
+    } else if (nearbyClue) {
       this.network.sendInspect(nearbyClue.id);
     }
   }
@@ -466,6 +599,14 @@ export class MatchScene {
         x: this.camera.target.x,
         z: this.camera.target.z,
       },
+      cameraAlpha: this.camera.alpha,
+      cameraBeta: this.camera.beta,
+      testCharacter: this.testCharacter
+        ? {
+            x: this.testCharacter.root.position.x,
+            z: this.testCharacter.root.position.z,
+          }
+        : null,
     };
   }
 

@@ -12,12 +12,17 @@ interface DebugSnapshot {
   authoritative: { x: number; z: number } | null;
   remote: Array<{ sessionId: string; x: number; z: number; alive: boolean }>;
   cameraTarget: { x: number; z: number } | null;
+  cameraAlpha: number;
+  cameraBeta: number;
+  testCharacter: { x: number; z: number } | null;
 }
 
 type DebugWindow = Window & {
   __islandCasesDebug?: {
     getSnapshot: () => DebugSnapshot;
     moveFor: (axes: MovementAxes, durationMs: number) => Promise<void>;
+    setTestCharacter: (x: number, z: number) => void;
+    setCameraAlpha: (alpha: number) => void;
   };
 };
 
@@ -53,7 +58,10 @@ function distanceTo(point: { x: number; z: number }, target: { x: number; z: num
 }
 
 async function moveTowards(page: Page, target: { x: number; z: number }): Promise<void> {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  let useZ = true;
+  let lastDistance = Number.POSITIVE_INFINITY;
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     const point = (await readSnapshot(page)).authoritative;
 
     if (!point) {
@@ -68,8 +76,21 @@ async function moveTowards(page: Page, target: { x: number; z: number }): Promis
 
     const deltaX = target.x - point.x;
     const deltaZ = target.z - point.z;
+
+    if (attempt === 0) {
+      useZ = Math.abs(deltaZ) >= Math.abs(deltaX);
+    }
+
+    if (lastDistance - distance < 0.1) {
+      useZ = !useZ;
+    }
+
+    if ((useZ && deltaZ === 0) || (!useZ && deltaX === 0)) {
+      useZ = !useZ;
+    }
+
     const axes: MovementAxes =
-      Math.abs(deltaZ) >= Math.abs(deltaX)
+      useZ && deltaZ !== 0
         ? { moveX: 0, moveZ: Math.sign(deltaZ) }
         : { moveX: Math.sign(deltaX), moveZ: 0 };
     const durationMs = Math.min(800, Math.max(120, ((distance - 0.6) / PLAYER_SPEED) * 1000));
@@ -80,6 +101,8 @@ async function moveTowards(page: Page, target: { x: number; z: number }): Promis
       },
       { axes, duration: durationMs },
     );
+
+    lastDistance = distance;
   }
 
   await expect
@@ -143,9 +166,64 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
   await expect(pageB.getByTestId("lobby")).toHaveCount(0);
   await expect(pageA.getByTestId("dossier")).toHaveAttribute("data-clues", "0");
 
+  expect((await readSnapshot(pageA)).testCharacter).not.toBeNull();
+  await pageA.evaluate(() => {
+    (window as DebugWindow).__islandCasesDebug?.setTestCharacter(-7.6, -6.4);
+  });
+  await expect
+    .poll(async () => (await readSnapshot(pageA)).testCharacter, { timeout: 5_000 })
+    .toMatchObject({ x: -7.6, z: -6.4 });
+
+  const movementStart = (await readSnapshot(pageA)).authoritative;
+  expect(movementStart).not.toBeNull();
+  await pageA.evaluate(() => {
+    (window as DebugWindow).__islandCasesDebug?.setCameraAlpha(0);
+  });
+  await pageA.keyboard.down("w");
+  await pageA.waitForTimeout(700);
+  await pageA.keyboard.up("w");
+  await expect
+    .poll(
+      async () => {
+        const point = (await readSnapshot(pageA)).authoritative;
+        return point && movementStart ? movementStart.x - point.x : 0;
+      },
+      { timeout: 5_000 },
+    )
+    .toBeGreaterThan(0.3);
+  await pageA.evaluate(() => {
+    (window as DebugWindow).__islandCasesDebug?.setCameraAlpha(-Math.PI / 2);
+  });
+
+  const cameraBefore = await readSnapshot(pageA);
+  await pageA.mouse.move(400, 300);
+  await pageA.mouse.move(600, 340, { steps: 8 });
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await readSnapshot(pageA);
+        return (
+          Math.abs(snapshot.cameraAlpha - cameraBefore.cameraAlpha) +
+          Math.abs(snapshot.cameraBeta - cameraBefore.cameraBeta)
+        );
+      },
+      { timeout: 5_000 },
+    )
+    .toBeGreaterThan(0.01);
+
   const before = await readSnapshot(pageB);
   expect(before.remote).toHaveLength(1);
 
+  await moveTowards(pageA, { x: -9.35, z: -4.7 });
+  await expect(pageA.getByTestId("hub-prompt")).toBeVisible({ timeout: 5_000 });
+  await expect(pageA.getByTestId("hub-prompt")).toContainText("Consultar directorio");
+  await pageA.keyboard.press("e");
+  await expect(pageA.getByTestId("hub-panel")).toBeVisible({ timeout: 5_000 });
+  await expect(pageA.getByTestId("hub-panel")).toContainText("Biblioteca");
+  await pageA.keyboard.press("Escape");
+  await expect(pageA.getByTestId("hub-panel")).toHaveCount(0);
+
+  await moveTowards(pageA, { x: -8, z: -4.7 });
   await moveTowards(pageA, { x: -6, z: -2.2 });
   await pageA.waitForTimeout(200);
 
@@ -191,6 +269,7 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
     "data-target",
     teammateId ?? "",
   );
+  await expect(pageA.getByTestId("death-overlay")).toHaveCount(0, { timeout: 6_000 });
 
   await expect
     .poll(

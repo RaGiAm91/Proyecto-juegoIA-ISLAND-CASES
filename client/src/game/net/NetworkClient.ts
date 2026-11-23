@@ -1,5 +1,16 @@
-import { CLIENT_MESSAGES, DEFAULT_SERVER_PORT, ROOM_NAME } from "@island-cases/shared";
-import type { MatchStateView, PlayerInput, PlayerView, TeamView } from "@island-cases/shared";
+import {
+  CLIENT_MESSAGES,
+  DEFAULT_SERVER_PORT,
+  ROOM_NAME,
+  SERVER_MESSAGES,
+} from "@island-cases/shared";
+import type {
+  HubPanelPayload,
+  MatchStateView,
+  PlayerInput,
+  PlayerView,
+  TeamView,
+} from "@island-cases/shared";
 import { Callbacks, Client, CloseCode, type Room } from "@colyseus/sdk";
 
 export type ConnectionStatus =
@@ -11,6 +22,7 @@ export interface NetworkEvents {
   onPlayerRemove: (sessionId: string) => void;
   onPlayerCount: (count: number) => void;
   onMatchState: (state: MatchStateView) => void;
+  onHubPanel: (panel: HubPanelPayload) => void;
 }
 
 function snapshotState(state: MatchStateView): MatchStateView {
@@ -90,6 +102,10 @@ export class NetworkClient {
         syncPlayerCount();
       });
 
+      room.onMessage(SERVER_MESSAGES.HUB_PANEL, (payload: HubPanelPayload) => {
+        events.onHubPanel(payload);
+      });
+
       room.onStateChange((state) => {
         const view = state as Partial<MatchStateView>;
         events.onPlayerCount(view.players?.size ?? 0);
@@ -151,6 +167,10 @@ export class NetworkClient {
 
   sendInspect(clueId: string): void {
     this.room?.send(CLIENT_MESSAGES.CLUE_INSPECT, { clueId });
+  }
+
+  sendHubInteract(interactableId: string): void {
+    this.room?.send(CLIENT_MESSAGES.HUB_INTERACT, { interactableId });
   }
 
   leave(): void {

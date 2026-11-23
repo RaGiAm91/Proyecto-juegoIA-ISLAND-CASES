@@ -8,14 +8,14 @@ import {
   MAX_PLAYER_NAME_LENGTH,
   MAX_PLAYERS,
   MAX_TEAMS,
-  type ClueDefinition,
+  type HubPanelPayload,
   type MatchStateView,
   type PlayerView,
 } from "@island-cases/shared";
 
 import styles from "./App.module.css";
 import { NetworkClient, type ConnectionStatus } from "./game/net/NetworkClient";
-import { MatchScene, type SceneStats } from "./game/scenes/MatchScene";
+import { MatchScene, type InteractionFocus, type SceneStats } from "./game/scenes/MatchScene";
 
 const STATUS_LABELS: Record<ConnectionStatus, string> = {
   idle: "EN ESPERA",
@@ -38,7 +38,9 @@ export default function App(): React.JSX.Element {
   const [statusMessage, setStatusMessage] = useState("");
   const [playerCount, setPlayerCount] = useState(0);
   const [matchState, setMatchState] = useState<MatchStateView | null>(null);
-  const [nearbyClue, setNearbyClue] = useState<ClueDefinition | null>(null);
+  const [interactionFocus, setInteractionFocus] = useState<InteractionFocus | null>(null);
+  const [hubPanel, setHubPanel] = useState<HubPanelPayload | null>(null);
+  const [deathNoticeVisible, setDeathNoticeVisible] = useState(false);
   const [stats, setStats] = useState<SceneStats>({ fps: 0, players: 0 });
 
   useEffect(() => {
@@ -46,6 +48,11 @@ export default function App(): React.JSX.Element {
       sceneRef.current?.dispose();
       networkRef.current?.leave();
     };
+  }, []);
+
+  const handleCloseHubPanel = useCallback((): void => {
+    setHubPanel(null);
+    sceneRef.current?.setInteractionBlocked(false);
   }, []);
 
   const handleJoin = useCallback(async (): Promise<void> => {
@@ -60,7 +67,13 @@ export default function App(): React.JSX.Element {
     setStatusMessage("");
 
     const network = new NetworkClient();
-    const scene = new MatchScene(canvas, network, setStats, setNearbyClue);
+    const scene = new MatchScene(
+      canvas,
+      network,
+      setStats,
+      setInteractionFocus,
+      handleCloseHubPanel,
+    );
     networkRef.current = network;
     sceneRef.current = scene;
 
@@ -78,6 +91,10 @@ export default function App(): React.JSX.Element {
         },
         onPlayerCount: setPlayerCount,
         onMatchState: setMatchState,
+        onHubPanel: (panel) => {
+          setHubPanel(panel);
+          scene.setInteractionBlocked(true);
+        },
       });
       setJoined(true);
     } catch (error) {
@@ -88,11 +105,12 @@ export default function App(): React.JSX.Element {
       sceneRef.current = null;
       networkRef.current = null;
       setMatchState(null);
-      setNearbyClue(null);
+      setInteractionFocus(null);
+      setHubPanel(null);
     } finally {
       setConnecting(false);
     }
-  }, [connecting, name]);
+  }, [connecting, handleCloseHubPanel, name]);
 
   const handleLeave = useCallback((): void => {
     sceneRef.current?.dispose();
@@ -104,7 +122,8 @@ export default function App(): React.JSX.Element {
     setStatusMessage("");
     setPlayerCount(0);
     setMatchState(null);
-    setNearbyClue(null);
+    setInteractionFocus(null);
+    setHubPanel(null);
     setStats({ fps: 0, players: 0 });
   }, []);
 
@@ -127,6 +146,18 @@ export default function App(): React.JSX.Element {
   const spectatorTargetName = localPlayer?.spectatorTarget
     ? (matchState?.players.get(localPlayer.spectatorTarget)?.name ?? "")
     : "";
+  const localAlive = localPlayer?.alive;
+
+  useEffect(() => {
+    if (localAlive !== false) {
+      setDeathNoticeVisible(false);
+      return;
+    }
+
+    setDeathNoticeVisible(true);
+    const timer = setTimeout(() => setDeathNoticeVisible(false), 3600);
+    return () => clearTimeout(timer);
+  }, [localAlive]);
 
   return (
     <main className={styles.app}>
@@ -224,32 +255,95 @@ export default function App(): React.JSX.Element {
             </section>
           )}
 
-          {phase === MATCH_PHASES.PLAYING && nearbyClue && localPlayer?.alive !== false && (
-            <div className={styles.interactionPrompt} data-testid="clue-prompt">
-              <kbd>E</kbd>
-              <span>Registrar pista: {nearbyClue.title}</span>
-            </div>
+          {phase === MATCH_PHASES.PLAYING &&
+            interactionFocus &&
+            localPlayer?.alive !== false &&
+            !hubPanel && (
+              <div
+                className={styles.interactionPrompt}
+                data-testid={interactionFocus.kind === "hub" ? "hub-prompt" : "clue-prompt"}
+              >
+                <kbd>E</kbd>
+                <span>
+                  {interactionFocus.kind === "hub"
+                    ? interactionFocus.interactable.prompt
+                    : `Registrar pista: ${interactionFocus.clue.title}`}
+                </span>
+              </div>
+            )}
+
+          {hubPanel && (
+            <section
+              className={styles.hubPanel}
+              data-testid="hub-panel"
+              data-interactable={hubPanel.id}
+              aria-label={hubPanel.title}
+            >
+              <div className={styles.hubPanelHeader}>
+                <div>
+                  <p className={styles.panelEyebrow}>
+                    {hubPanel.kind === "directory" ? "PUNTO DE INFORMACIÓN" : "REGISTRO DE CAMPO"}
+                  </p>
+                  <h2 className={styles.hubTitle}>{hubPanel.title}</h2>
+                </div>
+                <button
+                  type="button"
+                  className={styles.hubClose}
+                  onClick={handleCloseHubPanel}
+                  aria-label="Cerrar panel"
+                >
+                  ×
+                </button>
+              </div>
+              <div className={styles.hubSummary}>
+                <span>
+                  PISTAS {hubPanel.cluesFound}/{hubPanel.cluesTotal}
+                </span>
+                <span>EVENTOS {hubPanel.events}</span>
+              </div>
+              <ul className={styles.hubDestinations}>
+                {hubPanel.destinations.map((destination) => (
+                  <li key={destination.zoneId}>
+                    <strong>{destination.label}</strong>
+                    <span>{destination.hint}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className={styles.hubHint}>
+                Pulsa <kbd>Esc</kbd> para cerrar el panel.
+              </p>
+            </section>
           )}
 
-          {phase === MATCH_PHASES.PLAYING && localPlayer && !localPlayer.alive && (
-            <div className={styles.deathOverlay} data-testid="death-overlay">
-              <div
-                className={styles.deathCard}
-                data-testid="spectator-banner"
-                data-alive={localPlayer.alive}
-                data-target={localPlayer.spectatorTarget}
-              >
-                <p className={styles.panelEyebrow}>INVESTIGADOR CAÍDO</p>
-                <h2 className={styles.deathTitle}>HAS MUERTO</h2>
-                <p className={styles.deathDetail}>
-                  {lastEvent?.detail ?? "La mansión se ha cerrado para ti."}
-                </p>
-                <p className={styles.deathSpectator}>
-                  {spectatorTargetName
-                    ? `ESPECTANDO A ${spectatorTargetName}`
-                    : "SIN OBJETIVO VISIBLE"}
-                </p>
+          {phase === MATCH_PHASES.PLAYING &&
+            localPlayer &&
+            !localPlayer.alive &&
+            deathNoticeVisible && (
+              <div className={styles.deathOverlay} data-testid="death-overlay">
+                <div className={styles.deathCard}>
+                  <p className={styles.panelEyebrow}>INVESTIGADOR CAÍDO</p>
+                  <h2 className={styles.deathTitle}>HAS MUERTO</h2>
+                  <p className={styles.deathDetail}>
+                    {lastEvent?.detail ?? "La mansión se ha cerrado para ti."}
+                  </p>
+                  <p className={styles.deathSpectator}>
+                    {spectatorTargetName
+                      ? `ESPECTANDO A ${spectatorTargetName}`
+                      : "SIN OBJETIVO VISIBLE"}
+                  </p>
+                </div>
               </div>
+            )}
+
+          {phase === MATCH_PHASES.PLAYING && localPlayer && !localPlayer.alive && (
+            <div
+              className={styles.spectatorChip}
+              data-testid="spectator-banner"
+              data-alive={localPlayer.alive}
+              data-target={localPlayer.spectatorTarget}
+            >
+              <span className={styles.spectatorDot} />
+              {spectatorTargetName ? `ESPECTANDO A ${spectatorTargetName}` : "SIN OBJETIVO VISIBLE"}
             </div>
           )}
 
@@ -267,7 +361,7 @@ export default function App(): React.JSX.Element {
             </div>
             <div className={styles.controlRow}>
               <kbd>RATÓN</kbd>
-              <span>Mirar</span>
+              <span>Mover cámara al pasar</span>
             </div>
             <div className={styles.controlRow}>
               <kbd>RUEDA</kbd>

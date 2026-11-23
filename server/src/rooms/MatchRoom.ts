@@ -8,8 +8,12 @@ import {
   COUNTDOWN_SECONDS,
   DEFAULT_PLAYER_NAME,
   GAME_EVENT_BY_CLUE,
+  HUB_INTERACTABLE_BY_ID,
+  hubInteractSchema,
+  buildHubPanelPayload,
   inspectSchema,
   isClueInRange,
+  isHubInteractableInRange,
   joinOptionsSchema,
   MATCH_PHASES,
   MANSION_OBSTACLES,
@@ -18,9 +22,16 @@ import {
   PLAYER_SPEED,
   readySchema,
   ROOM_BOUNDS,
+  SERVER_MESSAGES,
   TICK_RATE,
 } from "@island-cases/shared";
-import type { InspectPayload, JoinOptions, PlayerInput, ReadyPayload } from "@island-cases/shared";
+import type {
+  HubInteractPayload,
+  InspectPayload,
+  JoinOptions,
+  PlayerInput,
+  ReadyPayload,
+} from "@island-cases/shared";
 import { Room, type Client, type CloseCode, validate } from "colyseus";
 
 import { MatchState, PlayerState, TeamState } from "./schema/MatchState.js";
@@ -97,6 +108,36 @@ export class MatchRoom extends Room {
         }
 
         this.triggerClueEvent(player, payload.clueId);
+      },
+    ),
+    [CLIENT_MESSAGES.HUB_INTERACT]: validate(
+      hubInteractSchema,
+      (client: Client, payload: HubInteractPayload) => {
+        if (this.state.phase !== MATCH_PHASES.PLAYING) {
+          return;
+        }
+
+        const player = this.state.players.get(client.sessionId);
+        const interactable = HUB_INTERACTABLE_BY_ID.get(payload.interactableId);
+
+        if (
+          !player ||
+          !player.connected ||
+          !player.alive ||
+          !interactable ||
+          !isHubInteractableInRange(interactable, player.x, player.z)
+        ) {
+          return;
+        }
+
+        const team = this.state.teams.get(String(player.team));
+        const panel = buildHubPanelPayload(
+          interactable,
+          team?.discoveredClues ?? [],
+          this.state.eventLog.length,
+        );
+
+        client.send(SERVER_MESSAGES.HUB_PANEL, panel);
       },
     ),
   };
