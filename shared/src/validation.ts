@@ -1,7 +1,8 @@
 import { z } from "zod";
 
-import { MAX_PLAYER_NAME_LENGTH, MIN_PLAYER_NAME_LENGTH } from "./constants.js";
+import { MAX_PLAYER_NAME_LENGTH, MIN_PLAYER_NAME_LENGTH, ROOM_BOUNDS } from "./constants.js";
 import type {
+  DebugSetPositionPayload,
   HubInteractPayload,
   InspectPayload,
   JoinOptions,
@@ -37,4 +38,9 @@ export const hubInteractSchema: z.ZodType<HubInteractPayload> = z.object({
 
 export const joinOptionsSchema: z.ZodType<JoinOptions> = z.object({
   name: playerNameSchema,
+});
+
+export const debugSetPositionSchema: z.ZodType<DebugSetPositionPayload> = z.object({
+  x: z.number().finite().min(-ROOM_BOUNDS).max(ROOM_BOUNDS),
+  z: z.number().finite().min(-ROOM_BOUNDS).max(ROOM_BOUNDS),
 });

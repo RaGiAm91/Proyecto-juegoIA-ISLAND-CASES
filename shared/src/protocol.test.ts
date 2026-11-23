@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { MAX_PLAYER_NAME_LENGTH } from "./constants.js";
 import {
+  debugSetPositionSchema,
   hubInteractSchema,
   joinOptionsSchema,
   playerNameSchema,
@@ -78,5 +79,15 @@ describe("hub interaction contract", () => {
 
   it("rejects empty interactable ids", () => {
     expect(hubInteractSchema.safeParse({ interactableId: "" }).success).toBe(false);
+  });
+});
+
+describe("debug position contract", () => {
+  it("accepts a position inside room bounds", () => {
+    expect(debugSetPositionSchema.safeParse({ x: -6, z: -2.2 }).success).toBe(true);
+  });
+
+  it("rejects positions outside room bounds", () => {
+    expect(debugSetPositionSchema.safeParse({ x: 20, z: 0 }).success).toBe(false);
   });
 });

@@ -1,5 +1,4 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PLAYER_SPEED, type MovementAxes } from "@island-cases/shared";
 
 interface DebugSnapshot {
   local: {
@@ -20,7 +19,7 @@ interface DebugSnapshot {
 type DebugWindow = Window & {
   __islandCasesDebug?: {
     getSnapshot: () => DebugSnapshot;
-    moveFor: (axes: MovementAxes, durationMs: number) => Promise<void>;
+    setPlayerPosition: (x: number, z: number) => void;
     setTestCharacter: (x: number, z: number) => void;
     setCameraAlpha: (alpha: number) => void;
   };
@@ -57,53 +56,10 @@ function distanceTo(point: { x: number; z: number }, target: { x: number; z: num
   return Math.hypot(target.x - point.x, target.z - point.z);
 }
 
-async function moveTowards(page: Page, target: { x: number; z: number }): Promise<void> {
-  let useZ = true;
-  let lastDistance = Number.POSITIVE_INFINITY;
-
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const point = (await readSnapshot(page)).authoritative;
-
-    if (!point) {
-      throw new Error("El jugador autoritativo aún no está disponible.");
-    }
-
-    const distance = distanceTo(point, target);
-
-    if (distance < 1) {
-      return;
-    }
-
-    const deltaX = target.x - point.x;
-    const deltaZ = target.z - point.z;
-
-    if (attempt === 0) {
-      useZ = Math.abs(deltaZ) >= Math.abs(deltaX);
-    }
-
-    if (lastDistance - distance < 0.1) {
-      useZ = !useZ;
-    }
-
-    if ((useZ && deltaZ === 0) || (!useZ && deltaX === 0)) {
-      useZ = !useZ;
-    }
-
-    const axes: MovementAxes =
-      useZ && deltaZ !== 0
-        ? { moveX: 0, moveZ: Math.sign(deltaZ) }
-        : { moveX: Math.sign(deltaX), moveZ: 0 };
-    const durationMs = Math.min(800, Math.max(120, ((distance - 0.6) / PLAYER_SPEED) * 1000));
-
-    await page.evaluate(
-      async ({ axes: movement, duration }) => {
-        await (window as DebugWindow).__islandCasesDebug?.moveFor(movement, duration);
-      },
-      { axes, duration: durationMs },
-    );
-
-    lastDistance = distance;
-  }
+async function setPlayerPosition(page: Page, target: { x: number; z: number }): Promise<void> {
+  await page.evaluate(({ x, z }) => {
+    (window as DebugWindow).__islandCasesDebug?.setPlayerPosition(x, z);
+  }, target);
 
   await expect
     .poll(
@@ -113,7 +69,7 @@ async function moveTowards(page: Page, target: { x: number; z: number }): Promis
       },
       { timeout: 5_000 },
     )
-    .toBeLessThan(1);
+    .toBeLessThan(0.2);
 }
 
 async function readSnapshot(page: Page): Promise<DebugSnapshot> {
@@ -214,7 +170,7 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
   const before = await readSnapshot(pageB);
   expect(before.remote).toHaveLength(1);
 
-  await moveTowards(pageA, { x: -9.35, z: -4.7 });
+  await setPlayerPosition(pageA, { x: -9, z: -4.7 });
   await expect(pageA.getByTestId("hub-prompt")).toBeVisible({ timeout: 5_000 });
   await expect(pageA.getByTestId("hub-prompt")).toContainText("Consultar directorio");
   await pageA.keyboard.press("e");
@@ -223,8 +179,8 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
   await pageA.keyboard.press("Escape");
   await expect(pageA.getByTestId("hub-panel")).toHaveCount(0);
 
-  await moveTowards(pageA, { x: -8, z: -4.7 });
-  await moveTowards(pageA, { x: -6, z: -2.2 });
+  await setPlayerPosition(pageA, { x: -8, z: -4.7 });
+  await setPlayerPosition(pageA, { x: -6, z: -2.2 });
   await pageA.waitForTimeout(200);
 
   await expect

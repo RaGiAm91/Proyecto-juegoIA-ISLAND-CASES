@@ -70,7 +70,7 @@ interface DebugSnapshot {
 type DebugWindow = Window & {
   __islandCasesDebug?: {
     getSnapshot: () => DebugSnapshot;
-    moveFor: (axes: MovementAxes, durationMs: number) => Promise<void>;
+    setPlayerPosition: (x: number, z: number) => void;
     setTestCharacter: (x: number, z: number) => void;
     setCameraAlpha: (alpha: number) => void;
   };
@@ -142,8 +142,7 @@ export class MatchScene {
 
   private readonly debugApi = {
     getSnapshot: (): DebugSnapshot => this.getDebugSnapshot(),
-    moveFor: (axes: MovementAxes, durationMs: number): Promise<void> =>
-      this.moveFor(axes, durationMs),
+    setPlayerPosition: (x: number, z: number): void => this.network.sendDebugSetPosition(x, z),
     setTestCharacter: (x: number, z: number): void => this.moveTestCharacter(x, z),
     setCameraAlpha: (alpha: number): void => {
       this.camera.alpha = alpha;
@@ -296,21 +295,6 @@ export class MatchScene {
     }
 
     return { moveX: desired.x, moveZ: desired.z };
-  }
-
-  private async moveFor(axes: MovementAxes, durationMs: number): Promise<void> {
-    if (
-      this.disposed ||
-      this.interactionBlocked ||
-      this.network.state?.phase !== MATCH_PHASES.PLAYING
-    ) {
-      return;
-    }
-
-    const yaw = this.localView?.root.rotation.y ?? 0;
-    this.network.sendInput({ ...axes, yaw });
-    await new Promise((resolve) => setTimeout(resolve, durationMs));
-    this.network.sendInput({ moveX: 0, moveZ: 0, yaw });
   }
 
   addPlayer(sessionId: string, player: PlayerView, isLocal: boolean): void {

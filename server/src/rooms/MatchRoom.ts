@@ -7,6 +7,7 @@ import {
   CLUE_BY_ID,
   COUNTDOWN_SECONDS,
   DEFAULT_PLAYER_NAME,
+  debugSetPositionSchema,
   GAME_EVENT_BY_CLUE,
   HUB_INTERACTABLE_BY_ID,
   hubInteractSchema,
@@ -26,6 +27,7 @@ import {
   TICK_RATE,
 } from "@island-cases/shared";
 import type {
+  DebugSetPositionPayload,
   HubInteractPayload,
   InspectPayload,
   JoinOptions,
@@ -138,6 +140,23 @@ export class MatchRoom extends Room {
         );
 
         client.send(SERVER_MESSAGES.HUB_PANEL, panel);
+      },
+    ),
+    [CLIENT_MESSAGES.DEBUG_SET_POSITION]: validate(
+      debugSetPositionSchema,
+      (client: Client, payload: DebugSetPositionPayload) => {
+        if (process.env.NODE_ENV === "production") {
+          return;
+        }
+
+        const player = this.state.players.get(client.sessionId);
+
+        if (this.state.phase !== MATCH_PHASES.PLAYING || !player?.connected || !player.alive) {
+          return;
+        }
+
+        player.x = payload.x;
+        player.z = payload.z;
       },
     ),
   };

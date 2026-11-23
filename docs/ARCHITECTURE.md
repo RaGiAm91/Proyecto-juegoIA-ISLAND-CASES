@@ -72,6 +72,7 @@ cliente -> interpolación -> personajes remotos
 - Los marcadores de puntos del hub son emisivos; el HUD bloquea el movimiento mientras el panel está abierto y `Esc` lo cierra.
 - En desarrollo se genera un personaje de pruebas en el vestíbulo; `__islandCasesDebug.setTestCharacter(x, z)` permite reposicionarlo desde E2E.
 - `__islandCasesDebug.setCameraAlpha(alpha)` permite girar la cámara desde E2E para verificar el movimiento relativo a la cámara.
+- `__islandCasesDebug.setPlayerPosition(x, z)` usa un mensaje DEV-only validado para colocar al jugador en E2E sin depender de temporizadores del navegador.
 - El aviso central de muerte se desvanece tras 3,6 s; en espectador queda una insignia compacta con el objetivo.
 - Cada pista tiene un marcador emisivo en 3D que desaparece cuando el equipo la registra.
 

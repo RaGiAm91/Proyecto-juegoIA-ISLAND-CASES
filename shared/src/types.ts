@@ -28,6 +28,11 @@ export interface HubInteractPayload {
   interactableId: string;
 }
 
+export interface DebugSetPositionPayload {
+  x: number;
+  z: number;
+}
+
 export interface PlayerView {
   x: number;
   y: number;

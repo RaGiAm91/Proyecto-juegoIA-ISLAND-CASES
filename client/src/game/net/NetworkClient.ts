@@ -173,6 +173,10 @@ export class NetworkClient {
     this.room?.send(CLIENT_MESSAGES.HUB_INTERACT, { interactableId });
   }
 
+  sendDebugSetPosition(x: number, z: number): void {
+    this.room?.send(CLIENT_MESSAGES.DEBUG_SET_POSITION, { x, z });
+  }
+
   leave(): void {
     this.room?.leave();
     this.room = null;
