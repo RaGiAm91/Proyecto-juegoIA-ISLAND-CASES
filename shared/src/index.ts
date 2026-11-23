@@ -1,5 +1,6 @@
 export * from "./clues.js";
 export * from "./events.js";
+export * from "./hub.js";
 export * from "./lobby.js";
 export * from "./mansion.js";
 export * from "./math.js";

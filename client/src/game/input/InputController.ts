@@ -5,6 +5,7 @@ type InputChangeHandler = () => void;
 export class InputController {
   private readonly keys = new Set<string>();
   private interactRequested = false;
+  private cancelRequested = false;
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (this.isTextTarget(event.target)) {
@@ -15,6 +16,10 @@ export class InputController {
 
     if (event.code === "KeyE" && !event.repeat) {
       this.interactRequested = true;
+    }
+
+    if (event.code === "Escape" && !event.repeat) {
+      this.cancelRequested = true;
     }
 
     this.onChange?.();
@@ -28,6 +33,7 @@ export class InputController {
   private readonly onBlur = (): void => {
     this.keys.clear();
     this.interactRequested = false;
+    this.cancelRequested = false;
     this.onChange?.();
   };
 
@@ -40,6 +46,12 @@ export class InputController {
   consumeInteract(): boolean {
     const requested = this.interactRequested;
     this.interactRequested = false;
+    return requested;
+  }
+
+  consumeCancel(): boolean {
+    const requested = this.cancelRequested;
+    this.cancelRequested = false;
     return requested;
   }
 
@@ -56,6 +68,7 @@ export class InputController {
     window.removeEventListener("blur", this.onBlur);
     this.keys.clear();
     this.interactRequested = false;
+    this.cancelRequested = false;
   }
 
   private isTextTarget(target: EventTarget | null): boolean {
