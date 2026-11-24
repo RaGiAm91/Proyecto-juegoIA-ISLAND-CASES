@@ -38,9 +38,12 @@ import { Room, type Client, type CloseCode, validate } from "colyseus";
 
 import { MatchState, PlayerState, TeamState } from "./schema/MatchState.js";
 
+const SPAWN_X = [-7, -3.5, -1, 2.5, 6];
+const SPAWN_Z = [-6, -3, 2.5, 5.5];
+
 const SPAWN_POINTS = Array.from({ length: 20 }, (_, index) => ({
-  x: -6 + (index % 5) * 3,
-  z: -4 + Math.floor(index / 5) * 3,
+  x: SPAWN_X[index % SPAWN_X.length] ?? 0,
+  z: SPAWN_Z[Math.floor(index / SPAWN_X.length)] ?? 0,
 }));
 
 export class MatchRoom extends Room {
