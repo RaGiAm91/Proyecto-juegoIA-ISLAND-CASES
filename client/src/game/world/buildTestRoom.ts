@@ -1,18 +1,10 @@
-import {
-  ENTRANCE_HALL_PROPS,
-  HUB_DOOR_SIGNS,
-  HUB_INTERACTABLES,
-  MANSION_DOORWAYS,
-  MANSION_WALLS,
-} from "@island-cases/shared";
-import type { HubDoorSign, HubInteractable } from "@island-cases/shared";
+import { ENTRANCE_HALL_PROPS, MANSION_DOORWAYS, MANSION_WALLS } from "@island-cases/shared";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
@@ -39,78 +31,24 @@ function makeEmissive(scene: Scene, name: string, color: string): StandardMateri
   return material;
 }
 
-function createDoorSign(scene: Scene, sign: HubDoorSign): void {
-  const texture = new DynamicTexture(`${sign.id}-texture`, { width: 512, height: 128 }, scene);
-  const context = texture.getContext() as CanvasRenderingContext2D;
-
-  context.fillStyle = "#0B0B0D";
-  context.fillRect(0, 0, 512, 128);
-  context.strokeStyle = "#A8863F";
-  context.lineWidth = 6;
-  context.strokeRect(4, 4, 504, 120);
-  context.fillStyle = "#F4EBDD";
-  context.font = "bold 46px Georgia";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText(sign.label, 256, 68);
-  texture.update();
-
-  const material = new StandardMaterial(`${sign.id}-material`, scene);
-  material.emissiveTexture = texture;
-  material.disableLighting = true;
-  material.backFaceCulling = false;
-
-  const plane = MeshBuilder.CreatePlane(sign.id, { width: 2.2, height: 0.55 }, scene);
-  plane.position.set(sign.x, 2.45, sign.z);
-  plane.rotation.y = sign.rotationY;
-  plane.material = material;
-}
-
-function createHubBoard(scene: Scene, interactable: HubInteractable): void {
-  const texture = new DynamicTexture(
-    `${interactable.id}-texture`,
-    { width: 512, height: 384 },
+function createWallBox(
+  scene: Scene,
+  name: string,
+  material: PBRMaterial,
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
+  minZ: number,
+  maxZ: number,
+): void {
+  const mesh = MeshBuilder.CreateBox(
+    name,
+    { width: maxX - minX, height: maxY - minY, depth: maxZ - minZ },
     scene,
   );
-  const context = texture.getContext() as CanvasRenderingContext2D;
-
-  context.fillStyle = "#17130F";
-  context.fillRect(0, 0, 512, 384);
-  context.strokeStyle = "#A8863F";
-  context.lineWidth = 8;
-  context.strokeRect(6, 6, 500, 372);
-  context.fillStyle = "#F4EBDD";
-  context.font = "bold 40px Georgia";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText(interactable.title.toUpperCase(), 256, 88);
-  context.fillStyle = "#7FD1B9";
-  context.font = "bold 26px Courier New";
-  context.fillText(
-    interactable.kind === "directory" ? "PLANTA BAJA · SALIDAS" : "CAMPO 1954 · PISTAS",
-    256,
-    158,
-  );
-  context.strokeStyle = "rgba(168, 134, 63, 0.5)";
-  context.lineWidth = 2;
-  context.beginPath();
-  context.moveTo(48, 204);
-  context.lineTo(464, 204);
-  context.stroke();
-  context.fillStyle = "#B7AB99";
-  context.font = "24px Courier New";
-  context.fillText("PULSA E PARA CONSULTAR", 256, 262);
-  texture.update();
-
-  const material = new StandardMaterial(`${interactable.id}-material`, scene);
-  material.emissiveTexture = texture;
-  material.disableLighting = true;
-  material.backFaceCulling = false;
-
-  const plane = MeshBuilder.CreatePlane(interactable.id, { width: 1.7, height: 1.25 }, scene);
-  plane.position.set(interactable.kind === "directory" ? -9.67 : -4.22, 2.05, interactable.z);
-  plane.rotation.y = interactable.kind === "directory" ? Math.PI / 2 : -Math.PI / 2;
-  plane.material = material;
+  mesh.position.set((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
+  mesh.material = material;
 }
 
 export function buildTestRoom(scene: Scene): void {
@@ -143,11 +81,82 @@ export function buildTestRoom(scene: Scene): void {
   ceiling.material = darkWood;
 
   for (const wall of MANSION_WALLS) {
-    const width = wall.maxX - wall.minX;
-    const depth = wall.maxZ - wall.minZ;
-    const mesh = MeshBuilder.CreateBox(`wall-${wall.id}`, { width, height: 6.4, depth }, scene);
-    mesh.position.set((wall.minX + wall.maxX) / 2, 3.2, (wall.minZ + wall.maxZ) / 2);
-    mesh.material = wall.kind === "exterior" ? wallMaterial : partitionMaterial;
+    if (wall.id === "exterior-north") {
+      createWallBox(scene, "wall-exterior-north-left", wallMaterial, -10, 3.7, 0, 6.4, 9.75, 10.25);
+      createWallBox(scene, "wall-exterior-north-right", wallMaterial, 7.3, 10, 0, 6.4, 9.75, 10.25);
+      createWallBox(
+        scene,
+        "wall-exterior-north-below",
+        wallMaterial,
+        3.7,
+        7.3,
+        0,
+        1.65,
+        9.75,
+        10.25,
+      );
+      createWallBox(
+        scene,
+        "wall-exterior-north-above",
+        wallMaterial,
+        3.7,
+        7.3,
+        4.95,
+        6.4,
+        9.75,
+        10.25,
+      );
+      continue;
+    }
+
+    if (wall.id === "exterior-south") {
+      createWallBox(
+        scene,
+        "wall-exterior-south-left",
+        wallMaterial,
+        -10,
+        -9,
+        0,
+        6.4,
+        -10.25,
+        -9.75,
+      );
+      createWallBox(
+        scene,
+        "wall-exterior-south-right",
+        wallMaterial,
+        -5,
+        10,
+        0,
+        6.4,
+        -10.25,
+        -9.75,
+      );
+      createWallBox(
+        scene,
+        "wall-exterior-south-above",
+        wallMaterial,
+        -9,
+        -5,
+        3.7,
+        6.4,
+        -10.25,
+        -9.75,
+      );
+      continue;
+    }
+
+    createWallBox(
+      scene,
+      `wall-${wall.id}`,
+      wall.kind === "exterior" ? wallMaterial : partitionMaterial,
+      wall.minX,
+      wall.maxX,
+      0,
+      6.4,
+      wall.minZ,
+      wall.maxZ,
+    );
   }
 
   for (const doorway of MANSION_DOORWAYS) {
@@ -257,51 +266,35 @@ export function buildTestRoom(scene: Scene): void {
 
   const runnerBorder = MeshBuilder.CreateGround(
     "entrance-runner-border",
-    { width: 2.9, height: 5.7 },
+    { width: 3.8, height: 7.6 },
     scene,
   );
-  runnerBorder.position.set(-6.9, 0.022, -5.9);
+  runnerBorder.position.set(-6.2, 0.022, -5.5);
   runnerBorder.material = trimMaterial;
-
-  for (const sign of HUB_DOOR_SIGNS) {
-    createDoorSign(scene, sign);
-  }
-
-  for (const interactable of HUB_INTERACTABLES) {
-    createHubBoard(scene, interactable);
-  }
 
   const eastGuide = MeshBuilder.CreateGround(
     "entrance-guide-east",
-    { width: 2.2, height: 0.1 },
+    { width: 3.8, height: 0.16 },
     scene,
   );
-  eastGuide.position.set(-5.2, 0.03, -6);
+  eastGuide.position.set(-3.7, 0.03, -6);
   eastGuide.material = makeEmissive(scene, "entrance-guide-east-material", "#3E6B5E");
 
   const northGuide = MeshBuilder.CreateGround(
     "entrance-guide-north",
-    { width: 0.1, height: 2.2 },
+    { width: 0.16, height: 3.6 },
     scene,
   );
-  northGuide.position.set(-6, 0.03, -1.8);
+  northGuide.position.set(-6, 0.03, 0.2);
   northGuide.material = makeEmissive(scene, "entrance-guide-north-material", "#3E6B5E");
 
   const entranceRunner = MeshBuilder.CreateGround(
     "entrance-runner",
-    { width: 2.6, height: 5.4 },
+    { width: 3.4, height: 7.2 },
     scene,
   );
-  entranceRunner.position.set(-6.9, 0.025, -5.9);
+  entranceRunner.position.set(-6.2, 0.025, -5.5);
   entranceRunner.material = rugMaterial;
-
-  const entranceMirror = MeshBuilder.CreateBox(
-    "entrance-mirror",
-    { width: 0.08, height: 2.4, depth: 1.4 },
-    scene,
-  );
-  entranceMirror.position.set(-9.66, 2.1, -6.2);
-  entranceMirror.material = stoneMaterial;
 
   for (const prop of ENTRANCE_HALL_PROPS) {
     const width = prop.maxX - prop.minX;
@@ -496,22 +489,6 @@ export function buildTestRoom(scene: Scene): void {
     back.material = darkWood;
   }
 
-  const candleA = MeshBuilder.CreateCylinder(
-    "candle-a",
-    { height: 0.35, diameter: 0.08, tessellation: 10 },
-    scene,
-  );
-  candleA.position.set(-0.7, 1.24, 0);
-  candleA.material = candleMaterial;
-
-  const candleB = MeshBuilder.CreateCylinder(
-    "candle-b",
-    { height: 0.28, diameter: 0.08, tessellation: 10 },
-    scene,
-  );
-  candleB.position.set(0.7, 1.21, 0);
-  candleB.material = candleMaterial;
-
   const chain = MeshBuilder.CreateCylinder(
     "chandelier-chain",
     { height: 1.4, diameter: 0.05, tessellation: 8 },
@@ -566,7 +543,7 @@ export function buildTestRoom(scene: Scene): void {
     bulb.material = candleMaterial;
   }
 
-  for (const z of [-2.4, -5.8, -8.2]) {
+  for (const z of [-2.4, -5.8, -8.2, 0.6]) {
     const sconce = MeshBuilder.CreateBox(
       `entrance-sconce-${z}`,
       { width: 0.12, height: 0.42, depth: 0.28 },
@@ -618,4 +595,34 @@ export function buildTestRoom(scene: Scene): void {
   boardLight.intensity = 3;
   boardLight.range = 4;
   boardLight.diffuse = Color3.FromHexString("#7FD1B9");
+
+  const panelLight = new PointLight("entrance-panel-light", new Vector3(-2.7, 2.6, -8.4), scene);
+  panelLight.intensity = 3;
+  panelLight.range = 4;
+  panelLight.diffuse = Color3.FromHexString("#7FD1B9");
+
+  const occluderPrefixes = [
+    "wall-",
+    "door-lintel-",
+    "door-jamb-",
+    "baseboard-",
+    "front-door-",
+    "prop-",
+    "window-frame",
+    "fireplace",
+    "hearth",
+    "mantel",
+    "painting-frame",
+    "painting-canvas",
+    "table-",
+    "chair-",
+    "ceiling",
+  ];
+
+  for (const mesh of scene.meshes) {
+    if (occluderPrefixes.some((prefix) => mesh.name.startsWith(prefix))) {
+      const metadata = mesh.metadata as Record<string, unknown> | null;
+      mesh.metadata = { ...(metadata ?? {}), occluder: true };
+    }
+  }
 }

@@ -23,20 +23,17 @@ import type {
   PlayerView,
 } from "@island-cases/shared";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
-import "@babylonjs/core/Culling/ray";
+import { Ray } from "@babylonjs/core/Culling/ray";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Scene } from "@babylonjs/core/scene";
 
-import {
-  createCharacter,
-  createTestCharacter,
-  type CharacterView,
-} from "../characters/CharacterView";
+import { createCharacter, type CharacterView } from "../characters/CharacterView";
 import { InputController } from "../input/InputController";
 import type { NetworkClient } from "../net/NetworkClient";
 import { buildTestRoom } from "../world/buildTestRoom";
@@ -46,6 +43,20 @@ export interface SceneStats {
   players: number;
 }
 
+export const CAMERA_FOLLOW = {
+  default: 0.7,
+  min: 0.3,
+  max: 1.5,
+  step: 0.05,
+} as const;
+
+const BASE_POINTER_SENSITIVITY = 0.002;
+const BASE_ANGULAR_SENSIBILITY = 1000;
+const BASE_CAMERA_FOLLOW_RATE = 9;
+const OCCLUSION_MIN_VISIBILITY = 0.28;
+const OCCLUSION_FADE_SECONDS = 0.18;
+const OCCLUSION_CLEARANCE = 0.25;
+
 interface CharacterEntry {
   view: CharacterView;
   isLocal: boolean;
@@ -54,6 +65,7 @@ interface CharacterEntry {
 interface DebugSnapshot {
   local: {
     x: number;
+    y: number;
     z: number;
     alive: boolean;
     spectating: boolean;
@@ -64,14 +76,15 @@ interface DebugSnapshot {
   cameraTarget: { x: number; z: number } | null;
   cameraAlpha: number;
   cameraBeta: number;
-  testCharacter: { x: number; z: number } | null;
+  cameraAngularSensibility: number;
+  cameraFollow: number;
+  occludedMeshes: string[];
 }
 
 type DebugWindow = Window & {
   __islandCasesDebug?: {
     getSnapshot: () => DebugSnapshot;
     setPlayerPosition: (x: number, z: number) => void;
-    setTestCharacter: (x: number, z: number) => void;
     setCameraAlpha: (alpha: number) => void;
   };
 };
@@ -92,11 +105,6 @@ function colorFor(sessionId: string): string {
   }
 
   return PALETTE[Math.abs(hash) % PALETTE.length] ?? "#A8863F";
-}
-
-function applyAlivePose(view: CharacterView, alive: boolean): void {
-  view.root.scaling.y = alive ? 1 : 0.35;
-  view.root.rotation.z = alive ? 0 : -Math.PI / 2;
 }
 
 export class MatchScene {
@@ -120,6 +128,7 @@ export class MatchScene {
     this.engine.resize();
   };
   private readonly canvas: HTMLCanvasElement;
+  private readonly occluders: AbstractMesh[];
   private lastPointer: { x: number; y: number } | null = null;
   private readonly pointerMoveHandler = (event: PointerEvent): void => {
     if (this.disposed || event.buttons !== 0) {
@@ -130,8 +139,8 @@ export class MatchScene {
     if (this.lastPointer) {
       const deltaX = event.clientX - this.lastPointer.x;
       const deltaY = event.clientY - this.lastPointer.y;
-      this.camera.inertialAlphaOffset -= deltaX * 0.002;
-      this.camera.inertialBetaOffset -= deltaY * 0.002;
+      this.camera.inertialAlphaOffset -= deltaX * BASE_POINTER_SENSITIVITY;
+      this.camera.inertialBetaOffset -= deltaY * BASE_POINTER_SENSITIVITY;
     }
 
     this.lastPointer = { x: event.clientX, y: event.clientY };
@@ -143,18 +152,16 @@ export class MatchScene {
   private readonly debugApi = {
     getSnapshot: (): DebugSnapshot => this.getDebugSnapshot(),
     setPlayerPosition: (x: number, z: number): void => this.network.sendDebugSetPosition(x, z),
-    setTestCharacter: (x: number, z: number): void => this.moveTestCharacter(x, z),
     setCameraAlpha: (alpha: number): void => {
       this.camera.alpha = alpha;
       this.camera.inertialAlphaOffset = 0;
     },
   };
 
-  private readonly testCharacter: CharacterView | null;
   private localSessionId: string | null = null;
   private localView: CharacterView | null = null;
   private interactionBlocked = false;
-  private testCharacterElapsed = 0;
+  private cameraFollow: number = CAMERA_FOLLOW.default;
   private inputTimer: ReturnType<typeof setInterval> | null = null;
   private statsAccumulator = 0;
   private disposed = false;
@@ -181,9 +188,7 @@ export class MatchScene {
     this.scene = new Scene(this.engine);
     this.scene.skipPointerMovePicking = true;
     buildTestRoom(this.scene);
-
-    this.testCharacter = import.meta.env.DEV ? createTestCharacter(this.scene) : null;
-    this.testCharacter?.root.position.set(-7.4, 0, -6.2);
+    this.occluders = this.scene.meshes.filter((mesh) => mesh.metadata?.occluder === true);
 
     const markerMaterial = new StandardMaterial("clue-marker-material", this.scene);
     markerMaterial.emissiveColor = Color3.FromHexString("#A8863F");
@@ -232,6 +237,8 @@ export class MatchScene {
     this.camera.upperBetaLimit = 1.25;
     this.camera.wheelPrecision = 40;
     this.camera.panningSensibility = 0;
+    this.camera.angularSensibilityX = BASE_ANGULAR_SENSIBILITY;
+    this.camera.angularSensibilityY = BASE_ANGULAR_SENSIBILITY;
     this.camera.inertia = 0.72;
     this.camera.minZ = 0.1;
     this.camera.maxZ = 50;
@@ -345,8 +352,9 @@ export class MatchScene {
     }
   }
 
-  private moveTestCharacter(x: number, z: number): void {
-    this.testCharacter?.root.position.set(x, 0, z);
+  setCameraFollow(value: number): void {
+    const clamped = Math.min(CAMERA_FOLLOW.max, Math.max(CAMERA_FOLLOW.min, value));
+    this.cameraFollow = Number.isFinite(clamped) ? clamped : CAMERA_FOLLOW.default;
   }
 
   dispose(): void {
@@ -380,6 +388,24 @@ export class MatchScene {
     this.engine.dispose();
   }
 
+  private updateOcclusion(dt: number): void {
+    const ray = Ray.CreateNewFromTo(this.camera.position, this.camera.target);
+    const targetDistance = Vector3.Distance(this.camera.position, this.camera.target);
+    const step = dt / OCCLUSION_FADE_SECONDS;
+
+    for (const mesh of this.occluders) {
+      const hit = ray.intersectsMesh(mesh, false);
+      const blocking = hit.hit && hit.distance < targetDistance - OCCLUSION_CLEARANCE;
+      const destination = blocking ? OCCLUSION_MIN_VISIBILITY : 1;
+      const current = mesh.visibility;
+
+      mesh.visibility =
+        Math.abs(destination - current) <= step
+          ? destination
+          : current + Math.sign(destination - current) * step;
+    }
+  }
+
   private render(): void {
     if (this.disposed) {
       return;
@@ -387,14 +413,10 @@ export class MatchScene {
 
     const dt = Math.min(this.engine.getDeltaTime() / 1000, 0.25);
 
-    if (this.testCharacter) {
-      this.testCharacterElapsed += dt;
-      this.testCharacter.root.position.y = Math.sin(this.testCharacterElapsed * 2) * 0.025;
-    }
-
     this.updateLocal(dt);
     this.syncRemotePlayers(dt);
     this.syncClueMarkers();
+    this.updateOcclusion(dt);
     this.scene.render();
 
     this.statsAccumulator += dt;
@@ -406,6 +428,13 @@ export class MatchScene {
         players: this.characters.size,
       });
     }
+  }
+
+  private followCameraTarget(x: number, z: number, dt: number): void {
+    const smoothing = smoothingFactor(BASE_CAMERA_FOLLOW_RATE * this.cameraFollow, dt);
+    const destination = new Vector3(x, 1.4, z);
+
+    this.camera.target.copyFrom(Vector3.Lerp(this.camera.target, destination, smoothing));
   }
 
   private updateLocal(dt: number): void {
@@ -422,8 +451,7 @@ export class MatchScene {
         this.onHubClose();
       }
 
-      this.camera.target.copyFrom(local.root.position);
-      this.camera.target.y += 1.4;
+      this.followCameraTarget(local.root.position.x, local.root.position.z, dt);
       return;
     }
 
@@ -432,7 +460,7 @@ export class MatchScene {
       : undefined;
     const isDead = authoritative?.alive === false;
 
-    applyAlivePose(local, !isDead);
+    local.setAlive(!isDead);
 
     if (isDead) {
       this.input.consumeInteract();
@@ -444,8 +472,7 @@ export class MatchScene {
     if (this.network.state?.phase !== MATCH_PHASES.PLAYING) {
       this.input.consumeInteract();
       this.onInteraction(null);
-      this.camera.target.copyFrom(local.root.position);
-      this.camera.target.y += 1.4;
+      this.followCameraTarget(local.root.position.x, local.root.position.z, dt);
       return;
     }
 
@@ -469,8 +496,7 @@ export class MatchScene {
       }
     }
 
-    this.camera.target.copyFrom(local.root.position);
-    this.camera.target.y += 1.4;
+    this.followCameraTarget(local.root.position.x, local.root.position.z, dt);
 
     this.input.consumeCancel();
 
@@ -503,31 +529,27 @@ export class MatchScene {
     const targetPlayer = targetId ? state?.players.get(targetId) : undefined;
     const targetView = targetId ? this.characters.get(targetId) : undefined;
 
-    let destination: Vector3 | null = null;
+    let destination: { x: number; z: number } | null = null;
 
     if (targetPlayer) {
-      destination = new Vector3(targetPlayer.x, 1.4, targetPlayer.z);
+      destination = { x: targetPlayer.x, z: targetPlayer.z };
     } else if (targetView) {
-      destination = new Vector3(
-        targetView.view.root.position.x,
-        1.4,
-        targetView.view.root.position.z,
-      );
+      destination = {
+        x: targetView.view.root.position.x,
+        z: targetView.view.root.position.z,
+      };
     } else if (this.localView) {
-      destination = new Vector3(
-        this.localView.root.position.x,
-        1.4,
-        this.localView.root.position.z,
-      );
+      destination = {
+        x: this.localView.root.position.x,
+        z: this.localView.root.position.z,
+      };
     }
 
     if (!destination) {
       return;
     }
 
-    this.camera.target.copyFrom(
-      Vector3.Lerp(this.camera.target, destination, smoothingFactor(REMOTE_INTERPOLATION_RATE, dt)),
-    );
+    this.followCameraTarget(destination.x, destination.z, dt);
   }
 
   private syncClueMarkers(): void {
@@ -566,6 +588,7 @@ export class MatchScene {
       local: this.localView
         ? {
             x: this.localView.root.position.x,
+            y: this.localView.root.position.y,
             z: this.localView.root.position.z,
             alive: authoritative?.alive ?? true,
             spectating: authoritative?.spectating ?? false,
@@ -585,12 +608,11 @@ export class MatchScene {
       },
       cameraAlpha: this.camera.alpha,
       cameraBeta: this.camera.beta,
-      testCharacter: this.testCharacter
-        ? {
-            x: this.testCharacter.root.position.x,
-            z: this.testCharacter.root.position.z,
-          }
-        : null,
+      cameraAngularSensibility: this.camera.angularSensibilityX,
+      cameraFollow: this.cameraFollow,
+      occludedMeshes: this.occluders
+        .filter((mesh) => mesh.visibility < 0.9)
+        .map((mesh) => mesh.name),
     };
   }
 
@@ -614,8 +636,6 @@ export class MatchScene {
         continue;
       }
 
-      applyAlivePose(entry.view, player.alive);
-
       const target = new Vector3(player.x, 0, player.z);
       entry.view.root.position.copyFrom(Vector3.Lerp(entry.view.root.position, target, smoothing));
       entry.view.root.rotation.y = lerpAngle(
@@ -623,6 +643,7 @@ export class MatchScene {
         player.rotation,
         smoothing,
       );
+      entry.view.setAlive(player.alive);
     }
   }
 }

@@ -24,9 +24,9 @@ export interface MansionDoorway {
 }
 
 export const MANSION_ZONES: readonly MansionZone[] = [
-  { id: "entrance-hall", name: "Vestíbulo", minX: -10, maxX: -4, minZ: -10, maxZ: 0 },
-  { id: "library", name: "Biblioteca", minX: -10, maxX: -4, minZ: 0, maxZ: 10 },
-  { id: "main-hall", name: "Salón principal", minX: -4, maxX: 4, minZ: -10, maxZ: 10 },
+  { id: "entrance-hall", name: "Vestíbulo", minX: -10, maxX: -2, minZ: -10, maxZ: 2 },
+  { id: "library", name: "Biblioteca", minX: -10, maxX: -2, minZ: 2, maxZ: 10 },
+  { id: "main-hall", name: "Salón principal", minX: -2, maxX: 4, minZ: -10, maxZ: 10 },
   { id: "dining-room", name: "Comedor", minX: 4, maxX: 10, minZ: -10, maxZ: 0 },
   { id: "portrait-gallery", name: "Galería", minX: 4, maxX: 10, minZ: 0, maxZ: 10 },
 ];
@@ -39,25 +39,25 @@ export const MANSION_WALLS: readonly MansionWall[] = [
   {
     id: "west-partition-south",
     kind: "partition",
-    minX: -4.15,
-    maxX: -3.85,
+    minX: -2.15,
+    maxX: -1.85,
     minZ: -10,
-    maxZ: -7,
+    maxZ: -7.6,
   },
   {
     id: "west-partition-mid",
     kind: "partition",
-    minX: -4.15,
-    maxX: -3.85,
-    minZ: -5,
-    maxZ: 2,
+    minX: -2.15,
+    maxX: -1.85,
+    minZ: -4.4,
+    maxZ: 3.4,
   },
   {
     id: "west-partition-north",
     kind: "partition",
-    minX: -4.15,
-    maxX: -3.85,
-    minZ: 4,
+    minX: -2.15,
+    maxX: -1.85,
+    minZ: 6.6,
     maxZ: 10,
   },
   {
@@ -88,17 +88,17 @@ export const MANSION_WALLS: readonly MansionWall[] = [
     id: "west-cross-west",
     kind: "partition",
     minX: -10,
-    maxX: -7,
-    minZ: -0.15,
-    maxZ: 0.15,
+    maxX: -7.6,
+    minZ: 1.85,
+    maxZ: 2.15,
   },
   {
     id: "west-cross-east",
     kind: "partition",
-    minX: -5,
-    maxX: -4,
-    minZ: -0.15,
-    maxZ: 0.15,
+    minX: -4.4,
+    maxX: -2,
+    minZ: 1.85,
+    maxZ: 2.15,
   },
   {
     id: "east-cross-west",
@@ -119,11 +119,11 @@ export const MANSION_WALLS: readonly MansionWall[] = [
 ];
 
 export const MANSION_DOORWAYS: readonly MansionDoorway[] = [
-  { id: "west-south-door", x: -4, z: -6, width: 2, axis: "z" },
-  { id: "west-north-door", x: -4, z: 3, width: 2, axis: "z" },
+  { id: "west-south-door", x: -2, z: -6, width: 3.2, axis: "z" },
+  { id: "west-north-door", x: -2, z: 5, width: 3.2, axis: "z" },
   { id: "east-south-door", x: 4, z: -6, width: 2, axis: "z" },
   { id: "east-north-door", x: 4, z: 3, width: 2, axis: "z" },
-  { id: "west-cross-door", x: -6, z: 0, width: 2, axis: "x" },
+  { id: "west-cross-door", x: -6, z: 2, width: 3.2, axis: "x" },
   { id: "east-cross-door", x: 7, z: 0, width: 2, axis: "x" },
 ];
 

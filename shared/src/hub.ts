@@ -18,14 +18,6 @@ export interface HubDestination {
   hint: string;
 }
 
-export interface HubDoorSign {
-  id: string;
-  label: string;
-  x: number;
-  z: number;
-  rotationY: number;
-}
-
 export interface HubPanelPayload {
   id: string;
   kind: HubInteractableKind;
@@ -50,7 +42,7 @@ export const HUB_INTERACTABLES: readonly HubInteractable[] = [
     kind: "board",
     title: "Tablón de investigación",
     prompt: "Leer tablón",
-    x: -4.35,
+    x: -2.35,
     z: -8.4,
   },
 ];
@@ -58,23 +50,6 @@ export const HUB_INTERACTABLES: readonly HubInteractable[] = [
 export const HUB_INTERACTABLE_BY_ID: ReadonlyMap<string, HubInteractable> = new Map(
   HUB_INTERACTABLES.map((interactable) => [interactable.id, interactable]),
 );
-
-export const HUB_DOOR_SIGNS: readonly HubDoorSign[] = [
-  {
-    id: "entrance-library-sign",
-    label: "BIBLIOTECA",
-    x: -6,
-    z: -0.38,
-    rotationY: Math.PI,
-  },
-  {
-    id: "entrance-main-hall-sign",
-    label: "SALÓN PRINCIPAL",
-    x: -4.32,
-    z: -6,
-    rotationY: -Math.PI / 2,
-  },
-];
 
 export const HUB_DESTINATIONS: readonly HubDestination[] = [
   {

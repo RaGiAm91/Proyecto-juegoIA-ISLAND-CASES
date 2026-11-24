@@ -515,6 +515,7 @@
   background: rgba(11, 11, 13, 0.72);
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(10px);
+  pointer-events: auto;
 }
 
 .panelEyebrow,
@@ -580,6 +581,29 @@
 .statRow strong {
   color: #f4ebdd;
   font-weight: 400;
+}
+
+.followRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0 6px;
+  color: #b7ab99;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+}
+
+.followRow output {
+  color: #f4ebdd;
+}
+
+.followSlider {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  accent-color: #a8863f;
+  cursor: pointer;
 }
 
 .footer {
