@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 interface DebugSnapshot {
   local: {
     x: number;
+    y: number;
     z: number;
     alive: boolean;
     spectating: boolean;
@@ -13,14 +14,15 @@ interface DebugSnapshot {
   cameraTarget: { x: number; z: number } | null;
   cameraAlpha: number;
   cameraBeta: number;
-  testCharacter: { x: number; z: number } | null;
+  cameraAngularSensibility: number;
+  cameraFollow: number;
+  occludedMeshes: string[];
 }
 
 type DebugWindow = Window & {
   __islandCasesDebug?: {
     getSnapshot: () => DebugSnapshot;
     setPlayerPosition: (x: number, z: number) => void;
-    setTestCharacter: (x: number, z: number) => void;
     setCameraAlpha: (alpha: number) => void;
   };
 };
@@ -122,14 +124,6 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
   await expect(pageB.getByTestId("lobby")).toHaveCount(0);
   await expect(pageA.getByTestId("dossier")).toHaveAttribute("data-clues", "0");
 
-  expect((await readSnapshot(pageA)).testCharacter).not.toBeNull();
-  await pageA.evaluate(() => {
-    (window as DebugWindow).__islandCasesDebug?.setTestCharacter(-7.6, -6.4);
-  });
-  await expect
-    .poll(async () => (await readSnapshot(pageA)).testCharacter, { timeout: 5_000 })
-    .toMatchObject({ x: -7.6, z: -6.4 });
-
   const movementStart = (await readSnapshot(pageA)).authoritative;
   expect(movementStart).not.toBeNull();
   await pageA.evaluate(() => {
@@ -167,6 +161,30 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
     )
     .toBeGreaterThan(0.01);
 
+  await setPlayerPosition(pageA, { x: -8.5, z: -5 });
+  await pageA.evaluate(() => {
+    (window as DebugWindow).__islandCasesDebug?.setCameraAlpha(Math.PI);
+  });
+  await expect
+    .poll(async () => (await readSnapshot(pageA)).occludedMeshes, { timeout: 5_000 })
+    .toContain("wall-exterior-west");
+  await pageA.evaluate(() => {
+    (window as DebugWindow).__islandCasesDebug?.setCameraAlpha(Math.PI / 2);
+  });
+  await expect
+    .poll(async () => (await readSnapshot(pageA)).occludedMeshes, { timeout: 5_000 })
+    .not.toContain("wall-exterior-west");
+
+  const follow = pageA.getByTestId("camera-follow");
+  await expect(follow).toHaveValue("0.7");
+  await follow.focus();
+  await follow.press("ArrowRight");
+  await expect
+    .poll(async () => (await readSnapshot(pageA)).cameraFollow, { timeout: 5_000 })
+    .toBeCloseTo(0.75, 2);
+  await follow.evaluate((element) => (element as HTMLInputElement).blur());
+  expect((await readSnapshot(pageA)).cameraAngularSensibility).toBe(1000);
+
   const before = await readSnapshot(pageB);
   expect(before.remote).toHaveLength(1);
 
@@ -203,13 +221,13 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
   await expect(pageA.getByTestId("clue-prompt")).toBeVisible({ timeout: 5_000 });
   await pageA.keyboard.press("e");
   await expect(pageA.getByTestId("dossier")).toHaveAttribute("data-clues", "1");
+  await expect(pageA.getByTestId("death-overlay")).toBeVisible();
+  await expect(pageA.getByTestId("spectator-banner")).toHaveAttribute("data-alive", "false");
+  await expect(pageA.getByTestId("clue-prompt")).toHaveCount(0);
   await expect(pageA.locator('[data-clue="guest-book"]')).toHaveAttribute("data-found", "true");
   await expect(pageB.getByTestId("dossier")).toHaveAttribute("data-clues", "1");
   await expect(pageA.getByTestId("event-log")).toHaveAttribute("data-event", "firma-sangrienta");
   await expect(pageB.getByTestId("event-log")).toHaveAttribute("data-event", "firma-sangrienta");
-  await expect(pageA.getByTestId("death-overlay")).toBeVisible();
-  await expect(pageA.getByTestId("spectator-banner")).toHaveAttribute("data-alive", "false");
-  await expect(pageA.getByTestId("clue-prompt")).toHaveCount(0);
 
   await expect
     .poll(async () => (await readSnapshot(pageA)).local?.alive, { timeout: 10_000 })
@@ -218,6 +236,7 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
   const deadSnapshot = await readSnapshot(pageA);
   const teammateId = deadSnapshot.remote[0]?.sessionId;
 
+  expect(deadSnapshot.local?.y).toBeCloseTo(0.34, 2);
   expect(deadSnapshot.local?.spectating).toBe(true);
   expect(teammateId).toBeTruthy();
   expect(deadSnapshot.local?.spectatorTarget).toBe(teammateId);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import {
   CLUES,
@@ -15,7 +15,12 @@ import {
 
 import styles from "./App.module.css";
 import { NetworkClient, type ConnectionStatus } from "./game/net/NetworkClient";
-import { MatchScene, type InteractionFocus, type SceneStats } from "./game/scenes/MatchScene";
+import {
+  CAMERA_FOLLOW,
+  MatchScene,
+  type InteractionFocus,
+  type SceneStats,
+} from "./game/scenes/MatchScene";
 
 const STATUS_LABELS: Record<ConnectionStatus, string> = {
   idle: "EN ESPERA",
@@ -41,6 +46,7 @@ export default function App(): React.JSX.Element {
   const [interactionFocus, setInteractionFocus] = useState<InteractionFocus | null>(null);
   const [hubPanel, setHubPanel] = useState<HubPanelPayload | null>(null);
   const [deathNoticeVisible, setDeathNoticeVisible] = useState(false);
+  const [cameraFollow, setCameraFollow] = useState<number>(CAMERA_FOLLOW.default);
   const [stats, setStats] = useState<SceneStats>({ fps: 0, players: 0 });
 
   useEffect(() => {
@@ -53,6 +59,12 @@ export default function App(): React.JSX.Element {
   const handleCloseHubPanel = useCallback((): void => {
     setHubPanel(null);
     sceneRef.current?.setInteractionBlocked(false);
+  }, []);
+
+  const handleCameraFollowChange = useCallback((event: ChangeEvent<HTMLInputElement>): void => {
+    const value = Number(event.target.value);
+    setCameraFollow(value);
+    sceneRef.current?.setCameraFollow(value);
   }, []);
 
   const handleJoin = useCallback(async (): Promise<void> => {
@@ -74,6 +86,7 @@ export default function App(): React.JSX.Element {
       setInteractionFocus,
       handleCloseHubPanel,
     );
+    scene.setCameraFollow(cameraFollow);
     networkRef.current = network;
     sceneRef.current = scene;
 
@@ -110,7 +123,7 @@ export default function App(): React.JSX.Element {
     } finally {
       setConnecting(false);
     }
-  }, [connecting, handleCloseHubPanel, name]);
+  }, [cameraFollow, connecting, handleCloseHubPanel, name]);
 
   const handleLeave = useCallback((): void => {
     sceneRef.current?.dispose();
@@ -367,6 +380,22 @@ export default function App(): React.JSX.Element {
               <kbd>RUEDA</kbd>
               <span>Zoom</span>
             </div>
+            <div className={styles.followRow}>
+              <label htmlFor="camera-follow">Seguimiento</label>
+              <output htmlFor="camera-follow">{Math.round(cameraFollow * 100)}%</output>
+            </div>
+            <input
+              id="camera-follow"
+              className={styles.followSlider}
+              data-testid="camera-follow"
+              type="range"
+              min={CAMERA_FOLLOW.min}
+              max={CAMERA_FOLLOW.max}
+              step={CAMERA_FOLLOW.step}
+              value={cameraFollow}
+              onChange={handleCameraFollowChange}
+              aria-label="Seguimiento de la cámara"
+            />
             <div className={styles.divider} />
             <p className={styles.panelLabel}>RENDIMIENTO</p>
             <div className={styles.statRow}>
@@ -437,8 +466,8 @@ export default function App(): React.JSX.Element {
             )}
 
             <p className={styles.hint}>
-              {window.location.hostname}:2567 · WASD para mover · Arrastra para mirar · Rueda para
-              zoom
+              {window.location.hostname}:2567 · WASD para mover · Mueve el ratón para mirar · Rueda
+              para zoom
             </p>
           </div>
         </section>

@@ -6,7 +6,6 @@ import {
   buildHubPanelPayload,
   findNearbyHubInteractable,
   HUB_DESTINATIONS,
-  HUB_DOOR_SIGNS,
   HUB_INTERACTABLES,
   isHubInteractableInRange,
 } from "./hub.js";
@@ -30,7 +29,7 @@ describe("HUB_INTERACTABLES", () => {
     expect(directory).toBeDefined();
     expect(board).toBeDefined();
     expect(findNearbyHubInteractable(-9.2, -4.7)?.id).toBe(directory?.id);
-    expect(findNearbyHubInteractable(-5, -8.4)?.id).toBe(board?.id);
+    expect(findNearbyHubInteractable(-3, -8.4)?.id).toBe(board?.id);
     expect(findNearbyHubInteractable(0, 0)).toBeNull();
 
     if (!directory) {
@@ -43,17 +42,6 @@ describe("HUB_INTERACTABLES", () => {
     expect(
       isHubInteractableInRange(directory, directory.x + INTERACTION_RADIUS + 0.01, directory.z),
     ).toBe(false);
-  });
-
-  it("coloca la señalización de salidas dentro del vestíbulo", () => {
-    const ids = HUB_DOOR_SIGNS.map((sign) => sign.id);
-
-    expect(new Set(ids).size).toBe(ids.length);
-
-    for (const sign of HUB_DOOR_SIGNS) {
-      expect(findMansionZone(sign.x, sign.z)?.id).toBe("entrance-hall");
-      expect(sign.label.length).toBeGreaterThan(0);
-    }
   });
 
   it("compone el panel con progreso real y destinos compartidos", () => {

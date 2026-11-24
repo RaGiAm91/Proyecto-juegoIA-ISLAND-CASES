@@ -13,8 +13,11 @@ import "@babylonjs/core/Meshes/Builders/planeBuilder";
 import "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import "@babylonjs/core/Meshes/Builders/torusBuilder";
 
+const DEAD_BODY_LIFT = 0.34;
+
 export interface CharacterView {
   root: TransformNode;
+  setAlive: (alive: boolean) => void;
   dispose: () => void;
 }
 
@@ -131,6 +134,8 @@ export function createCharacter(
   shadow.isPickable = false;
   shadow.parent = root;
 
+  const groundMeshes: Mesh[] = [shadow];
+
   if (isLocal) {
     const ring = MeshBuilder.CreateTorus(
       `local-ring-${name}`,
@@ -146,6 +151,7 @@ export function createCharacter(
     ring.position.y = 0.04;
     ring.isPickable = false;
     ring.parent = root;
+    groundMeshes.push(ring);
   }
 
   const nameplate = createNameplate(scene, name);
@@ -153,73 +159,17 @@ export function createCharacter(
 
   return {
     root,
+    setAlive: (alive: boolean) => {
+      root.scaling.y = alive ? 1 : 0.35;
+      root.rotation.z = alive ? 0 : -Math.PI / 2;
+      root.position.y = alive ? 0 : DEAD_BODY_LIFT;
+
+      for (const mesh of groundMeshes) {
+        mesh.setEnabled(alive);
+      }
+    },
     dispose: () => {
       root.dispose(false, true);
     },
   };
-}
-
-export function createTestCharacter(scene: Scene): CharacterView {
-  const character = createCharacter(scene, "PRUEBAS", "#2E4057", false);
-  const detailMaterial = new PBRMaterial("test-character-detail-material", scene);
-
-  detailMaterial.albedoColor = Color3.FromHexString("#2E4057");
-  detailMaterial.metallic = 0;
-  detailMaterial.roughness = 0.8;
-
-  for (const side of [-1, 1]) {
-    const arm = MeshBuilder.CreateCapsule(
-      `test-character-arm-${side}`,
-      { height: 0.78, radius: 0.09, tessellation: 10 },
-      scene,
-    );
-    arm.material = detailMaterial;
-    arm.position.set(side * 0.42, 0.86, 0);
-    arm.rotation.z = side * 0.22;
-    arm.parent = character.root;
-
-    const leg = MeshBuilder.CreateCapsule(
-      `test-character-leg-${side}`,
-      { height: 0.7, radius: 0.11, tessellation: 10 },
-      scene,
-    );
-    leg.material = detailMaterial;
-    leg.position.set(side * 0.16, 0.35, 0);
-    leg.parent = character.root;
-  }
-
-  const badgeTexture = new DynamicTexture(
-    "test-character-badge-texture",
-    { width: 256, height: 96 },
-    scene,
-    false,
-  );
-  const context = badgeTexture.getContext() as unknown as CanvasRenderingContext2D;
-
-  context.fillStyle = "#A8863F";
-  context.fillRect(0, 0, 256, 96);
-  context.fillStyle = "#0B0B0D";
-  context.font = "bold 52px Courier New";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText("TEST", 128, 50);
-  badgeTexture.update();
-
-  const badgeMaterial = new StandardMaterial("test-character-badge-material", scene);
-  badgeMaterial.diffuseTexture = badgeTexture;
-  badgeMaterial.emissiveColor = Color3.White();
-  badgeMaterial.disableLighting = true;
-  badgeMaterial.backFaceCulling = false;
-
-  const badge = MeshBuilder.CreatePlane(
-    "test-character-badge",
-    { width: 0.52, height: 0.2 },
-    scene,
-  );
-  badge.material = badgeMaterial;
-  badge.position.set(0, 0.98, 0.34);
-  badge.isPickable = false;
-  badge.parent = character.root;
-
-  return character;
 }

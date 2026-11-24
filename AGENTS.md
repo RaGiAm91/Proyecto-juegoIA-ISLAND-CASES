@@ -65,3 +65,18 @@ Consultar `.agents/skills/colyseus/SKILL.md` antes de tocar salas o estado. Regl
 ## Calidad
 
 Antes de cerrar una fase: `npm run build`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e` y `npm run check:boundaries`. Sin errores P0/P1, sin warnings de consola y con la demo probada en dos navegadores.
+
+## Fuentes de assets
+
+- Modelos: Fab (antes Sketchfab) para `.glb` descargables y gratuitos con detalle alto; filtrar por Downloadable y Free. Útil para edificios, vehículos y escenarios complejos.
+- Modelos: Poly Haven para estilo realista con materiales PBR completos; bajar a 2K en `.gltf`/`.glb` para equilibrar calidad y memoria en portátil.
+- Modelos: Quaternius y KayKit para packs stylized/low poly coherentes y rápidos de integrar.
+- Modelos y audio: Kenney Assets, packs CC0 coherentes y ligeros: https://kenney.nl/assets
+- Personajes: Mixamo para humanoides y animaciones listas como correr, saltar o atacar.
+- Formato preferido: `.glb`, porque evita rutas rotas de texturas externas al entregar el proyecto.
+- Límite cómodo en portátil: 15.000 a 50.000 triángulos y texturas de 2048×2048 px.
+- Validar modelos antes de importarlos arrastrándolos a `donmccurdy.com` para comprobar aspecto, tamaño real y nombres de animaciones.
+- SFX: Freesound filtrando por CC0; Kenney Audio en `.ogg`/`.mp3` bajo CC0; Sonniss GDC Game Audio Bundles con efectos gratuitos libres de regalías.
+- SFX retro: jsfxr y ChipTone para generar saltos, láseres y explosiones exportables a `.wav` o `.mp3`.
+- Música: Pixabay para pistas descargables en `.mp3`; OpenGameArt para loops de videojuegos; Incompetech de Kevin MacLeod con mención obligatoria en créditos; Free Music Archive para instrumental, ambient y experimental bajo Creative Commons.
+- Audio web: usar `.mp3` o `.ogg`; iniciar la música tras la primera interacción del usuario porque los navegadores bloquean el autoplay; valorar Howler.js para loops, volúmenes independientes y sonidos simultáneos.

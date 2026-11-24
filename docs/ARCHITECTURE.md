@@ -18,7 +18,7 @@ shared/   protocolo, tipos, constantes, validación, matemáticas, estructura, c
 - `validation.ts`: esquemas Zod para entradas, nombres, inspección e interacción con el hub.
 - `clues.ts`: definiciones de pistas, búsqueda por proximidad y comprobación de rango.
 - `events.ts`: definiciones de eventos, búsqueda por pista disparadora y evento mortal.
-- `hub.ts`: puntos interactivos del vestíbulo, señalización de salidas, destinos y contenido del panel.
+- `hub.ts`: puntos interactivos del vestíbulo, destinos y contenido del panel.
 - `spectator.ts`: selección pura del objetivo de espectador.
 - `lobby.ts`: asignación de parejas y condición pura para iniciar la partida.
 - `mansion.ts`: zonas, muros, huecos de puerta y utilidades puras de la estructura de la mansión.
@@ -61,19 +61,23 @@ cliente -> interpolación -> personajes remotos
 - Imports específicos de Babylon y side-effects de `Ray`/builders para mantener el bundle bajo control.
 - Blockout construido con primitivas y materiales PBR a partir de la estructura compartida de la mansión.
 - La planta tiene cinco zonas: vestíbulo, biblioteca, salón principal, comedor y galería.
+- El vestíbulo mide 8×12 unidades y sus tres salidas tienen 3,2 unidades de ancho.
 - Los muros exteriores y los tabiques se generan desde `MANSION_WALLS`; los huecos desde `MANSION_DOORWAYS`.
 - Personajes placeholder con cuerpo, cabeza, sombrero, sombra y placa de nombre.
 - La cámara sigue al jugador local; los remotos se interpolan.
 - La cámara orbita al pasar el ratón sobre el canvas, sin necesidad de hacer clic o arrastrar; la rueda controla el zoom.
+- El control de seguimiento de la cámara ajusta la rapidez con que el objetivo sigue al jugador; el giro con el ratón permanece fijo y el valor por defecto es 70%.
+- Los muros y muebles entre la cámara y el jugador se vuelven semitransparentes con un fundido corto.
 - La mesa, las sillas y la chimenea tienen obstáculos AABB en `shared/world.ts` que coinciden con el blockout.
-- El vestíbulo es la primera zona detallada: alfombra, espejo, consola, perchero y atril del libro de visitas.
+- El vestíbulo es la primera zona detallada: alfombra, consola, perchero y atril del libro de visitas.
 - Los muebles del vestíbulo se definen en `shared/props.ts` y se renderizan desde esos mismos datos.
-- El vestíbulo se refuerza con puerta principal, candelabro, apliques, marco de alfombra, guías emisivas, carteles de salida y paneles consultables.
+- El vestíbulo se refuerza con puerta principal, candelabro, apliques, marco de alfombra, guías emisivas y marcadores de puntos del hub.
+- La ventana y la puerta principal tienen huecos visuales recortados en los muros; las colisiones compartidas siguen siendo sólidas.
 - Los marcadores de puntos del hub son emisivos; el HUD bloquea el movimiento mientras el panel está abierto y `Esc` lo cierra.
-- En desarrollo se genera un personaje de pruebas en el vestíbulo; `__islandCasesDebug.setTestCharacter(x, z)` permite reposicionarlo desde E2E.
 - `__islandCasesDebug.setCameraAlpha(alpha)` permite girar la cámara desde E2E para verificar el movimiento relativo a la cámara.
 - `__islandCasesDebug.setPlayerPosition(x, z)` usa un mensaje DEV-only validado para colocar al jugador en E2E sin depender de temporizadores del navegador.
 - El aviso central de muerte se desvanece tras 3,6 s; en espectador queda una insignia compacta con el objetivo.
+- El modelo caído se eleva para no atravesar el suelo y oculta su sombra y anillo de jugador local.
 - Cada pista tiene un marcador emisivo en 3D que desaparece cuando el equipo la registra.
 
 ## Colisiones
@@ -102,7 +106,7 @@ cliente -> interpolación -> personajes remotos
 
 ## Vestíbulo como hub
 
-- `shared/hub.ts` define el directorio y el tablón, sus posiciones, los destinos y la señalización de las dos salidas del vestíbulo.
+- `shared/hub.ts` define el directorio y el tablón, sus posiciones y los destinos del vestíbulo.
 - El cliente calcula el punto cercano con `findNearbyHubInteractable` y muestra el aviso `E`; las pistas tienen prioridad mutua para no mezclar prompts.
 - El servidor valida `hub:interact` durante `PLAYING`, exige jugador conectado y vivo, y comprueba la distancia con `isHubInteractableInRange`.
 - `hub:panel` se envía solo al jugador solicitante con destinos compartidos, progreso real del equipo y número de eventos; no entra en `MatchState`.
