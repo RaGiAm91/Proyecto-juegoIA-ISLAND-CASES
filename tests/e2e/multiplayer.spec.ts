@@ -146,20 +146,16 @@ test("dos investigadores forman pareja, registran una pista, mueren y espectan",
   });
 
   const cameraBefore = await readSnapshot(pageA);
+  expect(cameraBefore.cameraBeta).toBeCloseTo(0.78, 5);
   await pageA.mouse.move(400, 300);
   await pageA.mouse.move(600, 340, { steps: 8 });
   await expect
     .poll(
-      async () => {
-        const snapshot = await readSnapshot(pageA);
-        return (
-          Math.abs(snapshot.cameraAlpha - cameraBefore.cameraAlpha) +
-          Math.abs(snapshot.cameraBeta - cameraBefore.cameraBeta)
-        );
-      },
+      async () => Math.abs((await readSnapshot(pageA)).cameraAlpha - cameraBefore.cameraAlpha),
       { timeout: 5_000 },
     )
     .toBeGreaterThan(0.01);
+  expect((await readSnapshot(pageA)).cameraBeta).toBeCloseTo(cameraBefore.cameraBeta, 5);
 
   await setPlayerPosition(pageA, { x: -8.5, z: -5 });
   await pageA.evaluate(() => {
