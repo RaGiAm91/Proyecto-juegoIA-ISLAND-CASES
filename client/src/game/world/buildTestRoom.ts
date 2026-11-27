@@ -365,20 +365,29 @@ export function buildTestRoom(scene: Scene): void {
   rug.position.y = 0.02;
   rug.material = rugMaterial;
 
-  const windowFrame = MeshBuilder.CreateBox(
-    "window-frame",
-    { width: 3.2, height: 3, depth: 0.16 },
-    scene,
-  );
-  windowFrame.position.set(5.5, 3.3, 9.68);
-  windowFrame.material = darkWood;
+  const windowBars = [
+    { name: "window-frame-left", width: 0.45, height: 3.3, x: 3.925, y: 3.3 },
+    { name: "window-frame-right", width: 0.45, height: 3.3, x: 7.075, y: 3.3 },
+    { name: "window-frame-bottom", width: 2.7, height: 0.4, x: 5.5, y: 1.85 },
+    { name: "window-frame-top", width: 2.7, height: 0.4, x: 5.5, y: 4.75 },
+  ];
+
+  for (const bar of windowBars) {
+    const frame = MeshBuilder.CreateBox(
+      bar.name,
+      { width: bar.width, height: bar.height, depth: 0.16 },
+      scene,
+    );
+    frame.position.set(bar.x, bar.y, 9.7);
+    frame.material = trimMaterial;
+  }
 
   const windowGlass = MeshBuilder.CreateBox(
     "window-glass",
-    { width: 2.7, height: 2.5, depth: 0.08 },
+    { width: 2.7, height: 2.5, depth: 0.04 },
     scene,
   );
-  windowGlass.position.set(5.5, 3.3, 9.58);
+  windowGlass.position.set(5.5, 3.3, 9.74);
   windowGlass.material = windowMaterial;
 
   const windowBarV = MeshBuilder.CreateBox(
