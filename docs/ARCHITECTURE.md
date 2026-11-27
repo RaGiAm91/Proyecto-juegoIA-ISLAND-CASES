@@ -65,7 +65,7 @@ cliente -> interpolación -> personajes remotos
 - Los muros exteriores y los tabiques se generan desde `MANSION_WALLS`; los huecos desde `MANSION_DOORWAYS`.
 - Personajes placeholder con cuerpo, cabeza, sombrero, sombra y placa de nombre.
 - La cámara sigue al jugador local; los remotos se interpolan.
-- La cámara orbita al pasar el ratón sobre el canvas, sin necesidad de hacer clic o arrastrar; la rueda controla el zoom.
+- La cámara gira solo en horizontal al pasar el ratón sobre el canvas, sin necesidad de hacer clic o arrastrar; la rueda controla el zoom y el ángulo vertical queda fijo en una vista elevada.
 - El control de seguimiento de la cámara ajusta la rapidez con que el objetivo sigue al jugador; el giro con el ratón permanece fijo y el valor por defecto es 70%.
 - Los muros y muebles entre la cámara y el jugador se vuelven semitransparentes con un fundido corto.
 - La mesa, las sillas y la chimenea tienen obstáculos AABB en `shared/world.ts` que coinciden con el blockout.

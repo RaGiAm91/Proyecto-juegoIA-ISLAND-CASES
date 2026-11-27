@@ -51,7 +51,9 @@ export const CAMERA_FOLLOW = {
 } as const;
 
 const BASE_POINTER_SENSITIVITY = 0.002;
-const BASE_ANGULAR_SENSIBILITY = 1000;
+const BASE_ANGULAR_SENSIBILITY_X = 1000;
+const DISABLED_ANGULAR_SENSIBILITY_Y = 1_000_000;
+const CAMERA_FIXED_BETA = 0.78;
 const BASE_CAMERA_FOLLOW_RATE = 9;
 const OCCLUSION_MIN_VISIBILITY = 0.28;
 const OCCLUSION_FADE_SECONDS = 0.18;
@@ -138,9 +140,7 @@ export class MatchScene {
 
     if (this.lastPointer) {
       const deltaX = event.clientX - this.lastPointer.x;
-      const deltaY = event.clientY - this.lastPointer.y;
       this.camera.inertialAlphaOffset -= deltaX * BASE_POINTER_SENSITIVITY;
-      this.camera.inertialBetaOffset -= deltaY * BASE_POINTER_SENSITIVITY;
     }
 
     this.lastPointer = { x: event.clientX, y: event.clientY };
@@ -223,7 +223,7 @@ export class MatchScene {
     this.camera = new ArcRotateCamera(
       "third-person-camera",
       -Math.PI / 2,
-      1.08,
+      CAMERA_FIXED_BETA,
       6,
       new Vector3(0, 1.4, 0),
       this.scene,
@@ -233,12 +233,13 @@ export class MatchScene {
     canvas.addEventListener("pointerleave", this.pointerLeaveHandler);
     this.camera.lowerRadiusLimit = 3.5;
     this.camera.upperRadiusLimit = 7.5;
-    this.camera.lowerBetaLimit = 0.6;
-    this.camera.upperBetaLimit = 1.25;
+    this.camera.lowerBetaLimit = CAMERA_FIXED_BETA;
+    this.camera.upperBetaLimit = CAMERA_FIXED_BETA;
     this.camera.wheelPrecision = 40;
     this.camera.panningSensibility = 0;
-    this.camera.angularSensibilityX = BASE_ANGULAR_SENSIBILITY;
-    this.camera.angularSensibilityY = BASE_ANGULAR_SENSIBILITY;
+    this.camera.angularSensibilityX = BASE_ANGULAR_SENSIBILITY_X;
+    this.camera.angularSensibilityY = DISABLED_ANGULAR_SENSIBILITY_Y;
+    this.camera.inertialBetaOffset = 0;
     this.camera.inertia = 0.72;
     this.camera.minZ = 0.1;
     this.camera.maxZ = 50;
